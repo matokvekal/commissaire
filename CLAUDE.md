@@ -171,6 +171,30 @@ See `docs/app-review.md` for full bug list. Top 4 critical:
   a mid-wave reload restores it. `useLapRecording` takes `persistKey`; it hydrates
   synchronously and guards against writing the previous wave's log under a new key.
 
+### Joker button (heat page) — unidentified-rider taps
+- Opt-in via a side-menu checkbox (`useJokerMode`, localStorage
+  `commissaire.jokerEnabled`, default off — `HeaderMain.tsx`). Off means the
+  button/strip never render; nothing about the normal tap path changes.
+- Solves "bunch arrives at once, can't read bibs fast enough": tapping the bike
+  icon (left of the bib search, `page.tsx`) stamps a `JokerEntry` — just a
+  timestamp + sequence number, held in `useJokerQueue` — with **no rider
+  lookup at tap time**. Unlimited taps, each gets its own card in the
+  "🃏 Unresolved" strip with a live ticking "time since tapped" clock.
+- Persisted per wave to localStorage (`commissaire.jokers.${raceUuid}:heat:${heatId}`,
+  sibling key to `commissaire.actionLog.*`, same hydrate/guard pattern) — a Joker
+  survives a mid-wave reload same as the action log does.
+- Resolving (tap a Joker card → type a bib → Save) calls the *same*
+  `recordLap(rider, "click", atTime)` used by a normal tap, just backdated to
+  the Joker's `capturedAt` instead of "now" — so the lap lands with the exact
+  original time/position and, critically, rides the existing `riderActions` log
+  for free: Revert Last Lap and action-log undo work on a resolved Joker with
+  zero new undo code. Blocked (toast, stays unresolved) if the target rider
+  already has a `timeArrive` newer than the Joker's `capturedAt` — refuses to
+  rewrite history backwards.
+- `recordLap`'s duplicate-tap debounce (`lastActionRef`) is keyed off real
+  `Date.now()`, not the (possibly backdated) `atTime` — backdating a Joker
+  resolution must never produce a negative, always-truthy diff there.
+
 ### View-only (downloaded) races
 - `RaceProps.viewOnly` marks a race pulled in via "Download a Race" — a read-only
   copy for viewing results. Set in `DownloadRace.tsx`. Such races get a LIGHT

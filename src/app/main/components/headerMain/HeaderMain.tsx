@@ -11,6 +11,7 @@ import { Bike, Download, Gamepad2, LogOut, Mail, Menu, MessageCircle, Palette, U
 import { VERSION } from "../../../config/index";
 import { useTheme, type Theme } from "@/hooks/useTheme";
 import { useSkin, type Skin } from "@/hooks/useSkin";
+import { useJokerMode } from "@/hooks/useJokerMode";
 import { usePwaInstall } from "@/components/pwa/usePwaInstall";
 
 const THEME_OPTIONS: { value: Theme; label: string; bg: string; accent: string; text: string }[] = [
@@ -35,6 +36,7 @@ function HeaderMain() {
   const { user, getUser } = useDataStore();
   const { theme, setTheme } = useTheme();
   const { skin, setSkin } = useSkin();
+  const { jokerEnabled, toggleJokerEnabled } = useJokerMode();
   const { canInstall, promptInstall } = usePwaInstall();
 
   useEffect(() => {
@@ -262,6 +264,27 @@ function HeaderMain() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Joker button toggle — instant time+arrival stamp for riders the
+            commissaire can't identify fast enough, resolved to a bib later */}
+        <div className={styles.themeSection}>
+          <div className={styles.themeSectionLabel}>
+            <Bike className={styles.themeSectionIcon} aria-hidden="true" />
+            Joker Button
+          </div>
+          <label className={styles.jokerToggleRow}>
+            <input
+              type="checkbox"
+              checked={jokerEnabled}
+              onChange={toggleJokerEnabled}
+            />
+            <span>Show Joker button on the live wave screen</span>
+          </label>
+          <p className={styles.jokerToggleDesc}>
+            Tap it to stamp a rider's arrival time instantly when you can't
+            read their bib in time — assign the bib afterward.
+          </p>
         </div>
 
         {/* Direct line to the author — feedback goes to a person, not a form */}

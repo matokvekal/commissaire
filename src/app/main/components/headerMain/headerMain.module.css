@@ -402,6 +402,30 @@
   height: 13px;
 }
 
+.jokerToggleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text, #14243c);
+  cursor: pointer;
+}
+
+.jokerToggleRow input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.jokerToggleDesc {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
 .themeOptions {
   display: flex;
   gap: 6px;

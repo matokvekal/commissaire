@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import styles from "./racingRider.module.css";
 import { RiderProps } from "@/types/types";
 import { formatTime, parseClockTimeMs } from "@/utils/timeUtils";
+import { useSkin } from "@/hooks/useSkin";
 import { Bell } from "lucide-react";
 
 interface Props {
@@ -17,6 +18,8 @@ interface Props {
 const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlashing = false, raceEnded = false, onClick, onDoubleClick }) => {
   const clickCountRef = useRef<number>(0);
   const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { skin } = useSkin();
+  const isPro = skin === "gaming";
 
   const lapsRemaining = rider.totalLaps - rider.lapsCounter;
   const showBell = forceBell || (lapsRemaining === 2);
@@ -32,9 +35,8 @@ const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlash
     return () => clearInterval(t);
   }, [hasStarted]);
   const sinceArriveBaseline = parseClockTimeMs(rider.timeArrive) ?? parseClockTimeMs(rider.timeStartRace);
-  const sinceArrive = hasStarted && sinceArriveBaseline != null
-    ? formatTime((now - sinceArriveBaseline) / 1000)
-    : null;
+  const sinceArriveMs = hasStarted && sinceArriveBaseline != null ? now - sinceArriveBaseline : null;
+  const sinceArrive = sinceArriveMs != null ? formatTime(sinceArriveMs / 1000) : null;
 
   // Last completed lap's time — read straight from lapsDetails (the authoritative,
   // per-lap history) rather than the separately-tracked elapsedLastLap field, which
@@ -43,6 +45,24 @@ const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlash
     ? rider.lapsDetails[rider.lapsDetails.length - 1]
     : null;
   const lastLapTime = lastLap?.lapTime ?? rider.elapsedLastLap ?? null;
+
+  // PRO-only pace border: how far into an "expected" lap (paced off the rider's own
+  // last lap) they are right now, traced clockwise around the card's edge starting
+  // top-center. Sampled on its own 10s tick — deliberately chunkier than the 1s
+  // "since arrival" tick above, which keeps driving the text row untouched.
+  const [paceNow, setPaceNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isPro || !hasStarted) return;
+    const t = setInterval(() => setPaceNow(Date.now()), 10000);
+    return () => clearInterval(t);
+  }, [isPro, hasStarted]);
+
+  const lastLapMs = lastLap ? new Date(lastLap.endTime).getTime() - new Date(lastLap.startTime).getTime() : null;
+  const paceSinceArriveMs = hasStarted && sinceArriveBaseline != null ? paceNow - sinceArriveBaseline : null;
+  const paceProgress = isPro && hasStarted && lastLapMs && lastLapMs > 0 && paceSinceArriveMs != null
+    ? paceSinceArriveMs / lastLapMs
+    : null;
+  const paceOverdue = paceProgress != null && paceProgress >= 1;
 
   const bgStyle = color;
 
@@ -83,6 +103,13 @@ const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlash
       onClick={handleClick}
       onDoubleClick={(e) => { e.preventDefault(); }}
     >
+      {paceProgress != null && (
+        <div
+          className={`${styles.paceBorder} ${paceOverdue ? styles.paceBorderOverdue : ""}`}
+          style={{ "--pace-progress": Math.min(paceProgress, 1) } as React.CSSProperties}
+          aria-hidden="true"
+        />
+      )}
       {raceEnded && (
         <div className={styles.onTrackRibbon} title="Race ended — this rider is still on the track">
           ⚑ ON TRACK

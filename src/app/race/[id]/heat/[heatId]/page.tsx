@@ -11,7 +11,7 @@ import useRiderStore from "@/stores/ridersStore";
 import useCategoryStore from "@/stores/categoryStore";
 import { useVoiceSettingsStore } from "@/stores/voiceSettingsStore";
 import { RiderProps } from "@/types/types";
-import { formatTimeWithLeadingZeroes, parseClockTime } from "../../../../utils/timeUtils";
+import { formatTime, formatTimeWithLeadingZeroes, parseClockTime } from "../../../../utils/timeUtils";
 import { useLapRecording } from "./useLapRecording";
 import calculatePositions from "../../../../utils/calculatePosition";
 import { buildSchedule, DEFAULT_WAVE_GAP_MINUTES, riderInCategory, withCategoryLaps } from "../../schedule/Schedule";
@@ -27,6 +27,11 @@ import { extractNumbers } from "@/utils/numberParser";
 import { recordRaceEvent } from "@/services/cloud/raceEvents";
 import { canForRace } from "@/services/cloud/permissions";
 import useCloudRaceSync from "@/hooks/useCloudRaceSync";
+import { useJokerMode } from "@/hooks/useJokerMode";
+import { useJokerQueue, type JokerEntry } from "./useJokerQueue";
+import JokerCard from "./jokerCard/JokerCard";
+import JokerResolveModal from "./JokerResolveModal";
+import { Bike } from "lucide-react";
 
 // Category identity is name + subCategory: the same name can exist in several
 // waves with different subcategories (e.g. Master Men 19-29 vs 30-49).
@@ -145,6 +150,17 @@ const Heat: React.FC = () => {
     categories.find((c) => riderInCategory(rider, c))?.status === "finished";
 
 
+  // Persist the action log (and Joker queue) per wave so a mid-wave reload
+  // restores every arrival (BUGS.md #2). Keyed by race + heat so waves never
+  // share a log.
+  const persistKey = heatId != null ? `${raceUuid}:heat:${heatId}` : null;
+
+  // Joker button (side-menu opt-in): stamp an unidentified rider's arrival
+  // time+order instantly, resolve it to a bib afterward.
+  const { jokerEnabled } = useJokerMode();
+  const { jokers, addJoker, removeJoker } = useJokerQueue(persistKey);
+  const [resolvingJoker, setResolvingJoker] = useState<JokerEntry | null>(null);
+
   // Lap recording + rollback live in a dedicated hook (BUGS.md #29). Same rules
   // and side effects as before — this component just drives it.
   const {
@@ -158,9 +174,7 @@ const Heat: React.FC = () => {
     clearTimers,
   } = useLapRecording({
     raceUuid,
-    // Persist the action log per wave so a mid-wave reload restores every
-    // arrival (BUGS.md #2). Keyed by race + heat so waves never share a log.
-    persistKey: heatId != null ? `${raceUuid}:heat:${heatId}` : null,
+    persistKey,
     riders,
     updateRider,
     updateAllRiders,
@@ -339,6 +353,25 @@ const Heat: React.FC = () => {
     [filteredRiders]
   );
 
+  // Resolve a Joker (unidentified tap) to a real bib — records the lap as if
+  // it happened at the moment the Joker was tapped, not now. Returns whether
+  // it succeeded so the modal knows whether to close or let the commissaire retry.
+  const resolveJoker = (joker: JokerEntry, bibNumber: number): boolean => {
+    const candidate = runningRiders.find((r) => r.bibNumber === bibNumber);
+    if (!candidate) {
+      toast.error(`No active rider with bib ${bibNumber}`);
+      return false;
+    }
+    if (candidate.timeArrive && new Date(candidate.timeArrive).getTime() > new Date(joker.capturedAt).getTime()) {
+      toast.error(`Bib ${bibNumber} already has a more recent lap recorded`);
+      return false;
+    }
+    recordLap(candidate, "click", new Date(joker.capturedAt));
+    removeJoker(joker.id);
+    toast.success(`Joker #${joker.sequence} → Bib ${bibNumber}`);
+    return true;
+  };
+
   const activeRiders = useMemo(() => {
     const catFiltered = filterCats.size > 0 ? runningRiders.filter((r) => filterCats.has(riderCatKey(r))) : runningRiders;
     const q = searchTerm.toLowerCase();
@@ -499,6 +532,53 @@ const Heat: React.FC = () => {
     return formatTimeWithLeadingZeroes(Math.max(0, endMs - startMs) / 1000);
   }, [filteredRiders, now, clearedWave, waveStopped, startedWaveCats]);
 
+  // Fastest / average lap for the wave (dopamine strip between the filter row
+  // and the racing grid). Lap 1 is excluded on purpose: the start line rarely
+  // sits exactly on the lap-timing point, so the first crossing can be short
+  // or long versus every full lap after it — only laps 2+ are comparable.
+  const lapStats = useMemo(() => {
+    const pool = filterCats.size > 0 ? filteredRiders.filter((r) => filterCats.has(riderCatKey(r))) : filteredRiders;
+    let fastestMs: number | null = null;
+    let sumMs = 0;
+    let count = 0;
+    pool.forEach((r) => {
+      (r.lapsDetails ?? []).forEach((d) => {
+        if (d.lap <= 1) return;
+        const ms = new Date(d.endTime).getTime() - new Date(d.startTime).getTime();
+        if (!Number.isFinite(ms) || ms <= 0) return;
+        if (fastestMs == null || ms < fastestMs) fastestMs = ms;
+        sumMs += ms;
+        count += 1;
+      });
+    });
+    return {
+      fastestMs,
+      fastest: fastestMs != null ? formatTime(fastestMs / 1000) : null,
+      average: count > 0 ? formatTime(sumMs / count / 1000) : null,
+    };
+  }, [filteredRiders, filterCats]);
+
+  // Brief celebratory flash whenever the wave's fastest lap improves. Guarded
+  // with `hasMountedFastLap` so hydrating an in-progress wave on load/reload
+  // doesn't fire the flash for laps that were already on the board.
+  const [newFastLap, setNewFastLap] = useState(false);
+  const prevFastestMsRef = useRef<number | null>(null);
+  const hasMountedFastLapRef = useRef(false);
+  useEffect(() => {
+    const prev = prevFastestMsRef.current;
+    const next = lapStats.fastestMs;
+    prevFastestMsRef.current = next;
+    if (!hasMountedFastLapRef.current) {
+      hasMountedFastLapRef.current = true;
+      return;
+    }
+    if (next != null && (prev == null || next < prev)) {
+      setNewFastLap(true);
+      const t = setTimeout(() => setNewFastLap(false), 1200);
+      return () => clearTimeout(t);
+    }
+  }, [lapStats.fastestMs]);
+
   // Turn voice on/off. When turning on, make sure we have mic permission first,
   // showing a friendly pre-prompt before the browser's native permission dialog.
   const handleToggleVoice = async () => {
@@ -532,6 +612,17 @@ const Heat: React.FC = () => {
           onRevertLap={handleRevertLap}
           onStatusChange={handleStatusChange}
           onSaveComment={handleSaveComment}
+        />
+      )}
+
+      {/* Joker resolve modal — assign a bib to an unidentified stamped tap */}
+      {resolvingJoker && (
+        <JokerResolveModal
+          joker={resolvingJoker}
+          riders={filteredRiders}
+          onSave={(bib) => resolveJoker(resolvingJoker, bib)}
+          onDelete={() => removeJoker(resolvingJoker.id)}
+          onClose={() => setResolvingJoker(null)}
         />
       )}
 
@@ -623,6 +714,21 @@ const Heat: React.FC = () => {
         )}
 
         <div className={styles.searchWrapper}>
+          <div className={styles.searchWrapperLeft}>
+            {jokerEnabled && (
+              <button
+                className={styles.jokerBtn}
+                onClick={addJoker}
+                aria-label="Add Joker"
+                title="Stamp an unidentified rider's arrival time now"
+              >
+                <Bike size={20} aria-hidden="true" />
+                {jokers.length > 0 && (
+                  <span className={styles.jokerBadge}>{jokers.length}</span>
+                )}
+              </button>
+            )}
+          </div>
           <div className={styles.inputContainer}>
             <input
               type="text"
@@ -640,6 +746,7 @@ const Heat: React.FC = () => {
               <img src={Icons.search} alt="search" width={16} height={16} className={styles.inputIcon} />
             )}
           </div>
+          <div className={styles.searchWrapperRight} />
         </div>
 
         {/* Filter panel popup */}
@@ -706,6 +813,18 @@ const Heat: React.FC = () => {
                 ) : null;
               })()}
             </div>
+            {/* Fastest / average lap — dopamine feedback, inline so it doesn't
+                cost its own row. Lap 1 excluded (see lapStats memo). */}
+            {(lapStats.fastest || lapStats.average) && (
+              <div className={styles.lapStatsInline}>
+                <span className={`${styles.lapStatChip} ${newFastLap ? styles.lapStatPulse : ""}`}>
+                  <span className={styles.lapStatChipLabel}>⚡ Fastest</span> {lapStats.fastest ?? "—"}
+                </span>
+                <span className={styles.lapStatChip}>
+                  <span className={styles.lapStatChipLabel}>Avg lap</span> {lapStats.average ?? "—"}
+                </span>
+              </div>
+            )}
             <button
               className={`${styles.filterIconBtn} ${filterCats.size > 0 ? styles.filterIconActive : ""}`}
               onClick={() => setShowFilterPanel(true)}
@@ -730,6 +849,21 @@ const Heat: React.FC = () => {
                 />
               ))}
             </div>
+
+            {jokerEnabled && jokers.length > 0 && (
+              <>
+                <div className={styles.finishers}>🃏 Unresolved ({jokers.length})</div>
+                <div className={styles.riderGrid}>
+                  {jokers.map((joker) => (
+                    <JokerCard
+                      key={joker.id}
+                      joker={joker}
+                      onClick={() => setResolvingJoker(joker)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
 
             {finishedRiders.length > 0 && (
               <>

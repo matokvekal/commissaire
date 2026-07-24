@@ -127,7 +127,13 @@ export function useLapRecording({
   const reorderTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
   const lastActionRef = useRef<{ riderId: number; timestamp: number } | null>(null);
 
-  const recordLap = (rider: RiderProps, source: "click" | "voice" = "click"): void => {
+  /**
+   * @param atTime Backdate the lap to an earlier moment — used when resolving a
+   * Joker (an instant time+arrival stamp taken before the rider was identified)
+   * so the recorded lap reflects when it actually happened, not when it was
+   * resolved. Omit for a normal tap, which stamps "now" exactly as before.
+   */
+  const recordLap = (rider: RiderProps, source: "click" | "voice" = "click", atTime?: Date): void => {
     if ((rider.totalLaps > 0 && rider.lapsCounter >= rider.totalLaps) || rider.raceStatus === "finished") return;
 
     if (!canForRace(raceUuid, "MARK_LAP")) {
@@ -135,11 +141,15 @@ export function useLapRecording({
       return;
     }
 
-    const clickTime = new Date();
+    const clickTime = atTime ?? new Date();
+    const now = Date.now();
 
     // Debounce rapid duplicate taps / voice detections for the same rider.
+    // Keyed off real wall-clock `now`, not `clickTime` — a backdated Joker
+    // resolution would otherwise produce a negative (always-truthy) diff here
+    // and get silently swallowed.
     if (lastActionRef.current && lastActionRef.current.riderId === rider.id) {
-      if (clickTime.getTime() - lastActionRef.current.timestamp < 500) return;
+      if (now - lastActionRef.current.timestamp < 500) return;
     }
 
     if (rider.timeArrive) {
@@ -187,7 +197,7 @@ export function useLapRecording({
     };
 
     const finalSorted = sorted.map((r) => (r.id === updatedRider.id ? updatedRider : r));
-    lastActionRef.current = { riderId: rider.id, timestamp: clickTime.getTime() };
+    lastActionRef.current = { riderId: rider.id, timestamp: now };
     updateRider(updatedRider);
     updateAllRiders(finalSorted);
 

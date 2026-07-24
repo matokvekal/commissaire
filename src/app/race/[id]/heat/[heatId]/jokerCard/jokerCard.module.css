@@ -1,0 +1,46 @@
+.joker {
+  width: 76px;
+  min-height: 84px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 6px;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(120, 70, 210, 0.14) 0 8px,
+    rgba(120, 70, 210, 0.24) 8px 16px
+  );
+  border: 2px dashed rgba(120, 70, 210, 0.65);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.joker:active {
+  transform: scale(0.91);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.bikeIcon {
+  width: 22px;
+  height: 22px;
+  color: #5b2fa8;
+}
+
+.sequence {
+  font-size: 13px;
+  font-weight: 900;
+  color: #3a1f6e;
+}
+
+.since {
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(58, 31, 110, 0.75);
+}
