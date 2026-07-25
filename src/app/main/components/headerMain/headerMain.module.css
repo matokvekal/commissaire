@@ -144,6 +144,7 @@
   width: 72vw;
   max-width: 280px;
   height: 100vh;
+  height: 100dvh;
   background: linear-gradient(180deg, var(--drawer-bg), var(--drawer-bg-2));
   z-index: 50;
   display: flex;

@@ -8,12 +8,22 @@
   justify-content: center;
   padding: 16px;
   backdrop-filter: blur(3px);
+  /* Rescue scroll: on tablets the browser chrome (address bar, split-view,
+     on-screen keyboard) can shrink the real visible area below what `vh`
+     reports, so a centered card taller than that gets clipped top+bottom
+     with nothing to scroll it into view. This lets the whole overlay pan
+     so the Agree checkbox/button — which sit below the scrollable terms
+     text, not inside it — are always reachable. */
+  overflow-y: auto;
 }
 
 .card {
   width: 100%;
   max-width: 480px;
   max-height: 90vh;
+  /* dvh tracks the actual visible viewport (shrinks with address bars /
+     on-screen keyboards); vh above is the fallback for browsers without it. */
+  max-height: 90dvh;
   display: flex;
   flex-direction: column;
   background: #141b28;
@@ -22,6 +32,7 @@
   border-radius: 16px;
   padding: 20px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  margin: auto;
 }
 
 .title {

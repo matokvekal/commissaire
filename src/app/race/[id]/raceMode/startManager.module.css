@@ -1033,6 +1033,10 @@
   justify-content: center;
   z-index: 1000;
   padding: 20px;
+  /* Rescue scroll for tablets where real visible height < vh (browser
+     chrome/keyboard) — otherwise .modalFooter's Start/Cancel buttons can
+     render off-screen with nothing able to scroll them into view. */
+  overflow-y: auto;
 }
 
 .modalContent {
@@ -1041,9 +1045,11 @@
   width: 100%;
   max-width: 900px;
   max-height: 90vh;
+  max-height: 90dvh;
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-soft);
+  margin: auto;
 }
 
 .modalHeader {

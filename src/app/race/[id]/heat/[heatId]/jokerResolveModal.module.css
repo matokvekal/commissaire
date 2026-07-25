@@ -8,6 +8,7 @@
   justify-content: center;
   z-index: 900;
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  overflow-y: auto;
 }
 
 .modal {
@@ -16,6 +17,7 @@
   width: 100%;
   max-width: 420px;
   max-height: 90vh;
+  max-height: 90dvh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
