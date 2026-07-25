@@ -160,6 +160,19 @@
   transform: translateX(0);
 }
 
+/* Everything below the header scrolls on its own — the drawer itself is a
+   fixed 100vh box with overflow:hidden (for the rounded-corner clip), so
+   without this the bottom of a tall drawer (Joker checkbox, feedback email,
+   version) just gets clipped off with no way to reach it on short viewports. */
+.drawerScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+}
+
 .drawerHeader {
   display: flex;
   align-items: center;
@@ -266,6 +279,22 @@
 .navItem:hover {
   background: var(--bg-surface);
   transform: translateX(3px);
+}
+
+/* Reusable "not live yet" flag for nav items whose backend isn't ready
+   (e.g. Register/Login — LOGIN_ENABLED is false until sign-up has a
+   backend). Pushed to the row's end via margin-left:auto on the flex row. */
+.soonBadge {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e0384c;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 /* The template-download row is an <a>, not a <button> — kill link styling so it

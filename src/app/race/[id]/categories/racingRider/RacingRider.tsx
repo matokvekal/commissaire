@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import styles from "./racingRider.module.css";
 import { RiderProps } from "@/types/types";
 import { formatTime, parseClockTimeMs } from "@/utils/timeUtils";
@@ -15,11 +15,98 @@ interface Props {
   onDoubleClick: () => void;
 }
 
+type Pt = { x: number; y: number };
+
+// Walk the perimeter of a rounded rect (w x h, corner radius r), starting at
+// top-center and going clockwise, returning `count` evenly-spaced points.
+// Used to lay the pace dots directly on the card's actual edge. The card's
+// height is only a *minimum* (racingRider.module.css `.rider` uses
+// min-height, not height) and its border-radius differs by skin (16px
+// classic, 12px gaming — dots only ever render in gaming), so the geometry
+// is computed from the card's real measured size, not assumed constants.
+function roundedRectPerimeterPoints(w: number, h: number, r: number, count: number): Pt[] {
+  const straightX = w / 2 - r;
+  const straightY = h - 2 * r;
+  const straightBottom = w - 2 * r;
+  const arc = (Math.PI / 2) * r;
+  const segs = [straightX, arc, straightY, arc, straightBottom, arc, straightY, arc, straightX];
+  const total = segs.reduce((a, b) => a + b, 0);
+
+  const pointAt = (t: number): Pt => {
+    let d = ((t % total) + total) % total;
+    if (d <= segs[0]) return { x: w / 2 + d, y: 0 };
+    d -= segs[0];
+    if (d <= segs[1]) {
+      const a = -Math.PI / 2 + (d / segs[1]) * (Math.PI / 2);
+      return { x: w - r + r * Math.cos(a), y: r + r * Math.sin(a) };
+    }
+    d -= segs[1];
+    if (d <= segs[2]) return { x: w, y: r + d };
+    d -= segs[2];
+    if (d <= segs[3]) {
+      const a = (d / segs[3]) * (Math.PI / 2);
+      return { x: w - r + r * Math.cos(a), y: h - r + r * Math.sin(a) };
+    }
+    d -= segs[3];
+    if (d <= segs[4]) return { x: w - r - d, y: h };
+    d -= segs[4];
+    if (d <= segs[5]) {
+      const a = Math.PI / 2 + (d / segs[5]) * (Math.PI / 2);
+      return { x: r + r * Math.cos(a), y: h - r + r * Math.sin(a) };
+    }
+    d -= segs[5];
+    if (d <= segs[6]) return { x: 0, y: h - r - d };
+    d -= segs[6];
+    if (d <= segs[7]) {
+      const a = Math.PI + (d / segs[7]) * (Math.PI / 2);
+      return { x: r + r * Math.cos(a), y: r + r * Math.sin(a) };
+    }
+    d -= segs[7];
+    return { x: r + d, y: 0 };
+  };
+
+  const pts: Pt[] = [];
+  for (let i = 0; i < count; i++) pts.push(pointAt((i / count) * total));
+  return pts;
+}
+
+// Dense enough to read as a dotted line, not scattered points — same inset
+// (3px) the old conic-gradient ring used (padding: 3px before masking to a
+// frame). Gaming-skin card radius is 12px, so the inset path radius is 9px.
+const PACE_DOT_COUNT = 60;
+const PACE_DOT_CARD_RADIUS = 12;
+const PACE_DOT_INSET = 3;
+
 const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlashing = false, raceEnded = false, onClick, onDoubleClick }) => {
   const clickCountRef = useRef<number>(0);
   const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { skin } = useSkin();
   const isPro = skin === "gaming";
+
+  // Measure the card's real rendered box (not the min-height default) so the
+  // pace dots trace its actual edge instead of drifting off it when content
+  // pushes the card taller. Only observed in the gaming skin, where the dots
+  // can render at all.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [cardSize, setCardSize] = useState<{ w: number; h: number }>({ w: 76, h: 84 });
+  useEffect(() => {
+    if (!isPro || !cardRef.current) return;
+    const el = cardRef.current;
+    const ro = new ResizeObserver(() => {
+      setCardSize({ w: el.offsetWidth, h: el.offsetHeight });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isPro]);
+
+  const paceDotPoints = useMemo(() => {
+    const w = Math.max(cardSize.w - PACE_DOT_INSET * 2, PACE_DOT_CARD_RADIUS * 2 + 1);
+    const h = Math.max(cardSize.h - PACE_DOT_INSET * 2, PACE_DOT_CARD_RADIUS * 2 + 1);
+    return roundedRectPerimeterPoints(w, h, PACE_DOT_CARD_RADIUS - PACE_DOT_INSET, PACE_DOT_COUNT).map((p) => ({
+      x: p.x + PACE_DOT_INSET,
+      y: p.y + PACE_DOT_INSET,
+    }));
+  }, [cardSize.w, cardSize.h]);
 
   const lapsRemaining = rider.totalLaps - rider.lapsCounter;
   const showBell = forceBell || (lapsRemaining === 2);
@@ -63,6 +150,12 @@ const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlash
     ? paceSinceArriveMs / lastLapMs
     : null;
   const paceOverdue = paceProgress != null && paceProgress >= 1;
+  // Index of the leading (blinking) dot — dots before it stay solid, marking
+  // elapsed progress; nothing is rendered past it (mirrors the old ring only
+  // painting the elapsed arc, not the full circle).
+  const paceDotIndex = paceProgress != null
+    ? Math.min(Math.floor(Math.min(paceProgress, 1) * PACE_DOT_COUNT), PACE_DOT_COUNT - 1)
+    : null;
 
   const bgStyle = color;
 
@@ -96,6 +189,7 @@ const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlash
 
   return (
     <div
+      ref={cardRef}
       data-testid={`racing-rider-${rider.bibNumber}`}
       data-laps={`${rider.lapsCounter}/${rider.totalLaps}`}
       className={`${styles.rider} ${glowClass} ${raceEnded ? styles.onTrack : ""}`}
@@ -103,12 +197,23 @@ const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlash
       onClick={handleClick}
       onDoubleClick={(e) => { e.preventDefault(); }}
     >
-      {paceProgress != null && (
-        <div
-          className={`${styles.paceBorder} ${paceOverdue ? styles.paceBorderOverdue : ""}`}
-          style={{ "--pace-progress": Math.min(paceProgress, 1) } as React.CSSProperties}
-          aria-hidden="true"
-        />
+      {paceDotIndex != null && (
+        <div className={styles.paceDots} aria-hidden="true">
+          {paceOverdue ? (
+            <span
+              className={`${styles.paceDot} ${styles.paceDotOverdue}`}
+              style={{ left: `${paceDotPoints[0].x}px`, top: `${paceDotPoints[0].y}px` }}
+            />
+          ) : (
+            paceDotPoints.slice(0, paceDotIndex + 1).map((pt, i) => (
+              <span
+                key={i}
+                className={`${styles.paceDot} ${i === paceDotIndex ? styles.paceDotCurrent : ""}`}
+                style={{ left: `${pt.x}px`, top: `${pt.y}px` }}
+              />
+            ))
+          )}
+        </div>
       )}
       {raceEnded && (
         <div className={styles.onTrackRibbon} title="Race ended — this rider is still on the track">

@@ -83,8 +83,8 @@ export function VoiceSettingsModal({ onClose }: VoiceSettingsModalProps) {
               </label>
               <p className={styles.hint}>
                 {settings.autoConfirm
-                  ? 'When you speak a bib number, the lap will be recorded automatically.'
-                  : 'When you speak a bib number, it will appear in the search box for you to confirm by tapping.'}
+                  ? 'Experimental — speaking a bib number records the lap immediately, same as tapping the rider. Not 100% reliable yet, so double-check the board. Every spoken bib is also saved to the voice buffer (the list icon next to the mic on Live) so you can review what was heard.'
+                  : 'Assist mode: speaking a bib number records nothing by itself — it only gets saved to the voice buffer (tap the list icon next to the mic on Live to see the last 30 bibs heard, with the time). Useful when riders arrive faster than you can write bibs down by hand.'}
               </p>
             </div>
           </div>

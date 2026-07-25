@@ -110,6 +110,7 @@ function HeaderMain() {
           </Button>
         </div>
 
+        <div className={styles.drawerScroll}>
         <div className={styles.drawerAvatar}>
           <img src={Images.user} alt="user" className={styles.avatarImg} />
           {user ? (
@@ -150,6 +151,7 @@ function HeaderMain() {
             >
               <UserRound className={styles.navItemIcon} aria-hidden="true" />
               Register / Login
+              <span className={styles.soonBadge}>Soon</span>
             </Button>
           )}
           <Button
@@ -309,6 +311,7 @@ function HeaderMain() {
         {/* Version lives here in the side menu */}
         <div className={styles.drawerFooter}>
           <Version />
+        </div>
         </div>
       </div>
     </>

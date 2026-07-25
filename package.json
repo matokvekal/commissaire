@@ -10,10 +10,12 @@
     "deploy": "gh-pages -d dist",
     "gen-images": "node scripts/gen-images-manifest.mjs",
     "ocr-assets": "node scripts/fetch-ocr-assets.mjs",
-    "test": "playwright test",
+    "test": "npm run test:sync && playwright test",
     "test:full": "playwright test full-race-e2e",
     "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "test:sync": "node scripts/sync-playwright-inventory.mjs",
+    "test:list": "playwright test --list"
   },
   "dependencies": {
     "@emotion/react": "^11.13.0",

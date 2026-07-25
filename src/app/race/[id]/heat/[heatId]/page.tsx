@@ -31,7 +31,7 @@ import { useJokerMode } from "@/hooks/useJokerMode";
 import { useJokerQueue, type JokerEntry } from "./useJokerQueue";
 import JokerCard from "./jokerCard/JokerCard";
 import JokerResolveModal from "./JokerResolveModal";
-import { Bike } from "lucide-react";
+import { Bike, List } from "lucide-react";
 
 // Category identity is name + subCategory: the same name can exist in several
 // waves with different subcategories (e.g. Master Men 19-29 vs 30-49).
@@ -65,6 +65,13 @@ const Heat: React.FC = () => {
   const [voiceIsListening, setVoiceIsListening] = useState(false);
   const [detectedNumbers, setDetectedNumbers] = useState<Array<{ bib: string; categoryColor?: string; timestamp: number }>>([]);
   const [showActionLog, setShowActionLog] = useState(false);
+  // Voice buffer (BUGS.md voice assist modes): every recognized bib gets logged
+  // here regardless of autoConfirm — newest first, capped at 30 — so the
+  // commissaire can review who was called out even in assist mode, where
+  // nothing gets recorded automatically.
+  const [voiceLog, setVoiceLog] = useState<Array<{ bib: string; time: number }>>([]);
+  const [showVoiceLog, setShowVoiceLog] = useState(false);
+  const VOICE_LOG_LIMIT = 30;
   // Always-fresh refs so setTimeout callbacks can see latest store + handler
   const ridersRef = useRef(riders);
   const handleRiderClickRef = useRef<((rider: RiderProps, source?: 'click' | 'voice') => void) | null>(null);
@@ -316,6 +323,9 @@ const Heat: React.FC = () => {
   useEffect(() => {
     setClearedWave(false);
     setConfirmClear(false);
+    // New wave — last wave's voice buffer is stale, don't carry it over
+    setVoiceLog([]);
+    setShowVoiceLog(false);
   }, [heatId]);
 
   // Started categories in this wave, and whether the wave has been stopped
@@ -482,7 +492,17 @@ const Heat: React.FC = () => {
     validBibs,
     commands: [],
     onBibDetected: (bib) => {
-      // Push into buffer queue; processor handles cooldown + dedup + retry
+      // Every recognized bib lands in the buffer, whether or not it also
+      // gets auto-recorded — this is the only path that fires for a heard
+      // bib, so logging here (not inside processVoiceQueue) means the
+      // buffer reflects exactly what the mic actually caught.
+      setVoiceLog((prev) => [{ bib, time: Date.now() }, ...prev].slice(0, VOICE_LOG_LIMIT));
+
+      // Assist mode (autoConfirm off): buffer only, nothing auto-records —
+      // the commissaire reviews the list and taps riders in manually.
+      if (!voiceSettings.autoConfirm) return;
+
+      // Active mode: push into record queue; processor handles cooldown + dedup + retry
       voiceQueueRef.current.push({ bib, detectedAt: Date.now() });
       processVoiceQueue();
     },
@@ -497,6 +517,12 @@ const Heat: React.FC = () => {
   useEffect(() => {
     setVoiceIsListening(isListening);
   }, [isListening]);
+
+  // Its toggle button only exists while voice is on — close the panel along
+  // with it so it can't get stuck open with no way to dismiss it.
+  useEffect(() => {
+    if (!voiceActive) setShowVoiceLog(false);
+  }, [voiceActive]);
 
   // Cleanup timers on unmount (the hook owns them)
   useEffect(() => clearTimers, [clearTimers]);
@@ -679,7 +705,13 @@ const Heat: React.FC = () => {
               </button>
               <button
                 className={styles.clearConfirmBtn}
-                onClick={() => { setClearedWave(true); setConfirmClear(false); }}
+                onClick={() => {
+                  setClearedWave(true);
+                  setConfirmClear(false);
+                  // Wave's stopped — this wave's voice buffer is done too
+                  setVoiceLog([]);
+                  setShowVoiceLog(false);
+                }}
               >
                 Clear board
               </button>
@@ -818,10 +850,12 @@ const Heat: React.FC = () => {
             {(lapStats.fastest || lapStats.average) && (
               <div className={styles.lapStatsInline}>
                 <span className={`${styles.lapStatChip} ${newFastLap ? styles.lapStatPulse : ""}`}>
-                  <span className={styles.lapStatChipLabel}>⚡ Fastest</span> {lapStats.fastest ?? "—"}
+                  <span className={styles.lapStatChipLabel}>⚡ Fastest</span>
+                  <span className={styles.lapStatChipValue}>{lapStats.fastest ?? "—"}</span>
                 </span>
                 <span className={styles.lapStatChip}>
-                  <span className={styles.lapStatChipLabel}>Avg lap</span> {lapStats.average ?? "—"}
+                  <span className={styles.lapStatChipLabel}>Avg lap</span>
+                  <span className={styles.lapStatChipValue}>{lapStats.average ?? "—"}</span>
                 </span>
               </div>
             )}
@@ -884,8 +918,10 @@ const Heat: React.FC = () => {
         </div>
       </div>
 
-      {/* Voice debug panel — visible only when voice is active */}
-      {voiceActive && (
+      {/* Voice debug panel — active/auto-confirm mode only. In assist mode it
+          just covers rider cards for no benefit, since nothing auto-records
+          anyway; the new voice-buffer panel is the assist-mode equivalent. */}
+      {voiceActive && voiceSettings.autoConfirm && (
         <div className={styles.voiceDebug}>
           <div className={styles.voiceDebugRow}>
             <span className={styles.voiceDebugLabel}>status:</span>
@@ -939,18 +975,56 @@ const Heat: React.FC = () => {
             {detectedNumbers.length > 0 && <DetectedNumbers numbers={detectedNumbers} />}
           </div>
 
-          <button
-            className={styles.micButtonRadar}
-            onClick={handleToggleVoice}
-            title={voiceActive ? "Disable voice input" : "Enable voice input"}
-          >
-            <VoiceRadarIcon
-              isActive={voiceActive}
-              audioLevel={voiceAudioLevel}
-              isListening={voiceIsListening}
-            />
-          </button>
+          {/* Mic + voice-buffer toggle stay side by side as a pair even when
+              .controlRow stacks to a column on narrow phones — this row never
+              wraps to vertical on its own. */}
+          <div className={styles.micRow}>
+            <button
+              className={styles.micButtonRadar}
+              onClick={handleToggleVoice}
+              title={voiceActive ? "Disable voice input" : "Enable voice input"}
+            >
+              <VoiceRadarIcon
+                isActive={voiceActive}
+                audioLevel={voiceAudioLevel}
+                isListening={voiceIsListening}
+              />
+            </button>
+
+            {/* Voice buffer toggle — every heard bib lands here (assist mode's
+                only output; active mode logs it too, alongside the real record).
+                Only exists once voice is actually on — nothing to show before that. */}
+            {voiceActive && (
+              <button
+                className={`${styles.voiceLogBtn} ${showVoiceLog ? styles.voiceLogBtnActive : ""}`}
+                onClick={() => setShowVoiceLog((v) => !v)}
+                aria-label="Voice buffer"
+                title="Show bibs heard by voice"
+              >
+                <List size={24} aria-hidden="true" />
+                {voiceLog.length > 0 && <span className={styles.voiceLogBadge}>{voiceLog.length}</span>}
+              </button>
+            )}
+          </div>
         </div>
+
+        {showVoiceLog && (
+          <div className={styles.voiceLogPanel}>
+            <div className={styles.voiceLogPanelTitle}>Heard ({voiceLog.length})</div>
+            {voiceLog.length === 0 ? (
+              <div className={styles.voiceLogEmpty}>Nothing yet</div>
+            ) : (
+              voiceLog.map((entry, i) => (
+                <div key={`${entry.time}-${i}`} className={styles.voiceLogRow}>
+                  <span className={styles.voiceLogBib}>#{entry.bib}</span>
+                  <span className={styles.voiceLogTime}>
+                    {new Date(entry.time).toLocaleTimeString('en-GB', { hour12: false })}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       {/* Rider action log */}

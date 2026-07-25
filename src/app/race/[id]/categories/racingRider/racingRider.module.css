@@ -220,36 +220,45 @@
   border-left-color: rgba(255, 214, 232, 0.45);
 }
 
-/* ═══ PRO-only pace border ═══
+/* ═══ PRO-only pace dots ═══
    Fraction of the rider's own last-lap time elapsed since their last arrival,
-   traced clockwise around the card's actual edge starting top-center (a
-   conic-gradient masked down to just the frame, not the whole card). Sampled
-   on its own 10s tick in RacingRider.tsx, independent of the 1s "since
-   arrival" tick used for the text row above. */
-.paceBorder {
+   walked clockwise around the card's actual measured edge starting top-center
+   as a trail of dots (RacingRider.tsx measures the card via ResizeObserver —
+   its height is only a min-height, so it can render taller than the CSS
+   default). Sampled on its own 10s tick, independent of the 1s "since
+   arrival" tick used for the text row. Only the elapsed portion is drawn —
+   nothing paints ahead of "now". 60 dots keeps them close enough together to
+   read as a dotted line rather than scattered points. */
+.paceDots {
   position: absolute;
   inset: 0;
-  border-radius: 16px;
-  padding: 3px;
-  background: conic-gradient(
-    from 0deg,
-    #34d058 calc(var(--pace-progress, 0) * 360deg),
-    transparent 0deg
-  );
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
   pointer-events: none;
 }
 
-.paceBorderOverdue {
-  background: conic-gradient(from 0deg, #ff4d4f 360deg, transparent 0deg);
-  animation: paceOverduePulse 1.4s ease-in-out infinite;
+.paceDot {
+  position: absolute;
+  width: 2.6px;
+  height: 2.6px;
+  border-radius: 50%;
+  background: #34d058;
+  transform: translate(-50%, -50%);
 }
 
-@keyframes paceOverduePulse {
+/* Leading dot: where "now" actually is on the pace trail */
+.paceDotCurrent {
+  animation: paceDotBlink 1s ease-in-out infinite;
+}
+
+/* Overdue: the trail collapses back to a single alert dot at top-center
+   (standard dot size — no enlarging, the blink alone is the signal) */
+.paceDotOverdue {
+  background: #ff4d4f;
+  animation: paceDotBlink 0.9s ease-in-out infinite;
+}
+
+@keyframes paceDotBlink {
   0%, 100% { opacity: 1; }
-  50%      { opacity: 0.55; }
+  50%      { opacity: 0.15; }
 }
 
 /* Click/voice-confirm flash — one-shot bright glow that fades out */

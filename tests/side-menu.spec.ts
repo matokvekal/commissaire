@@ -5,14 +5,16 @@ import { acceptTerms } from "./helpers";
  * The side menu carries the direct feedback line to the author. It's the only
  * route a user has for reporting a bug, so it should not silently disappear.
  */
-const FEEDBACK_EMAIL = "mictavim@gmail.com";
+const FEEDBACK_EMAIL = "info@commissaire.us";
 
 test.describe("Side menu", () => {
   test("offers a direct feedback email", async ({ page }) => {
     await page.goto("/main");
     await acceptTerms(page);
 
-    await page.getByRole("button", { name: "Open menu" }).click();
+    const menuButton = page.getByRole("button", { name: "Open menu" });
+    await expect(menuButton).toBeVisible();
+    await menuButton.click();
 
     await expect(page.getByText("Comments? Bugs?")).toBeVisible();
     const link = page.getByRole("link", { name: FEEDBACK_EMAIL });
