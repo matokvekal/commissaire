@@ -157,6 +157,20 @@ See `docs/app-review.md` for full bug list. Top 4 critical:
 - `public/example.csv` is the downloadable start-list template offered in the import
   wizard. It has a UTF-8 BOM (Excel needs it for Hebrew) — preserve it if editing.
 
+### `public/` is published verbatim — runtime assets only
+- Everything in `public/` is copied into `dist/` and served publicly on
+  commissaire.us. **Never put documentation or an `AGENT.md` there** — that is how
+  `public/AGENT.md` and `public/data/DICTIONARY_GUIDE.md` became world-readable;
+  they now live at `docs/public-assets.md` / `docs/dictionary-guide.md`.
+- `npm run build` ends with `scripts/verify-dist.mjs --prune`, which strips
+  markdown/agent/test/source-map/config files out of `dist/`; the deploy workflow
+  re-runs it read-only (`npm run verify:dist`) and FAILS the deploy if any remain.
+  Deploy-critical files (`index.html`, `404.html`, `CNAME`, `manifest.json`,
+  `sw.js`, `favicon.ico`) are in the script's `ALWAYS_KEEP` exemption list — add to
+  it before introducing another root-level special file.
+- Source maps stay off (`build.sourcemap: false` in `vite.config.ts`). See
+  `docs/github-pages.md`.
+
 ### Live tap / undo (heat page)
 - Tapping a rider records a lap and eventually drops them to the end of
   `displayOrder` (the manual queue) — but only after the **board hold** expires;

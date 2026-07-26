@@ -9,7 +9,7 @@
 |---|---:|---:|---:|---:|---|
 | AGENT.md | N | 11 | 4 | 36% | .claude, .github, .vscode, docs, public, scripts, supabase |
 | docs/AGENT.md | Y | 1 | 1 | 100% |  |
-| public/AGENT.md | N | 5 | 2 | 40% | images, international, tracks |
+| docs/public-assets.md (was public/AGENT.md) | N | 5 | 2 | 40% | images, international, tracks |
 | src/AGENT.md | Y | 1 | 1 | 100% |  |
 | src/app/AGENT.md | Y | 20 | 7 | 35% | assets, config, constants, contact, hooks, landingV2, login, loginerror, main, otp, styles, terms, workers |
 | src/app/components/AGENT.md | Y | 17 | 1 | 6% | admin, arcade, auth, circleChart, cloud, csv, Footer, header, headerLogo, importImage, legal, map, otpbox, pwa, Version, voice |

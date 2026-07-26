@@ -32,7 +32,8 @@ Mode: One-by-one
 1. AGENT.md
 2. docs/AGENT.md
 3. tests/AGENT.md
-4. public/AGENT.md
+4. docs/public-assets.md (moved out of `public/` — never put docs there, they get
+   published; see docs/github-pages.md)
 5. src/AGENT.md
 6. src/app/AGENT.md
 7. src/app/stores/AGENT.md
