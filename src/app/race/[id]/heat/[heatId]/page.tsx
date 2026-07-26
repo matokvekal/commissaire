@@ -28,6 +28,7 @@ import { recordRaceEvent } from "@/services/cloud/raceEvents";
 import { canForRace } from "@/services/cloud/permissions";
 import useCloudRaceSync from "@/hooks/useCloudRaceSync";
 import { useJokerMode } from "@/hooks/useJokerMode";
+import { useBoardHold } from "@/stores/boardHoldStore";
 import { useJokerQueue, type JokerEntry } from "./useJokerQueue";
 import JokerCard from "./jokerCard/JokerCard";
 import JokerResolveModal from "./JokerResolveModal";
@@ -168,12 +169,17 @@ const Heat: React.FC = () => {
   const { jokers, addJoker, removeJoker } = useJokerQueue(persistKey);
   const [resolvingJoker, setResolvingJoker] = useState<JokerEntry | null>(null);
 
+  // How long the board stays frozen after a tap, so a bunch arriving together
+  // doesn't reshuffle the cards while the bibs are still being read out.
+  const boardHoldMs = useBoardHold((s) => s.holdMs);
+
   // Lap recording + rollback live in a dedicated hook (BUGS.md #29). Same rules
   // and side effects as before — this component just drives it.
   const {
     riderActions,
     setRiderActions,
     flashingRiderId,
+    pendingMoveIds,
     recordLap,
     revertLap,
     cancelAction,
@@ -190,6 +196,7 @@ const Heat: React.FC = () => {
     getCatColor,
     displayOrder,
     setDisplayOrder,
+    boardHoldMs,
     // The voice path renders its own detected-number chip, so only the tap path
     // adds one here — exactly as before the extraction.
     onLapRecorded: (rider, catColor, source) => {
@@ -419,6 +426,11 @@ const Heat: React.FC = () => {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runningIdsKey]);
+
+  // Cards tapped during the current board hold. They keep their place on the
+  // board, so each one has to show that it registered — the drop to the bottom
+  // used to be the only confirmation.
+  const pendingMoveSet = useMemo(() => new Set(pendingMoveIds), [pendingMoveIds]);
 
   // Build displayed riders: stable order from displayOrder, live data from activeRiders
   const displayedRiders = useMemo(() => {
@@ -723,6 +735,22 @@ const Heat: React.FC = () => {
       <div className={styles.wrapper}>
         {/* Timer row with wave-info button: which wave is live + its started categories */}
         <div className={styles.timerRow}>
+          {/* Rider action log — lives in the timer row's empty left column so it
+              scrolls/reflows with the clock and wave chip instead of floating
+              over them on its own fixed coordinates. */}
+          <div className={styles.logSlot}>
+            <RiderActionLog
+              actions={riderActions}
+              isOpen={showActionLog}
+              onToggle={() => setShowActionLog(!showActionLog)}
+              onCancel={(actionId, riderName) => {
+                // The hook owns the undo: exact snapshot restore, queue slot restore,
+                // and cancelling any pending drop-to-end (BUGS.md #10, #29).
+                if (!cancelAction(actionId)) return;
+                toast.success(`Cancelled: ${riderName}`);
+              }}
+            />
+          </div>
           <p className={styles.timerText}>{elapsedTime}</p>
           <button className={styles.waveInfoBtn} onClick={() => setShowWaveInfo(true)} title="Wave info">
             {heatId != null && <span className={styles.waveInfoLabel}>Wave {heatId}</span>}
@@ -877,6 +905,7 @@ const Heat: React.FC = () => {
                   color={getCatColor(rider)}
                   forceBell={cascadeBellCats.has(riderCatKey(rider))}
                   isFlashing={flashingRiderId === rider.id}
+                  isRecorded={pendingMoveSet.has(rider.id)}
                   raceEnded={isOnTrackAfterEnd(rider)}
                   onClick={() => handleRiderClick(rider)}
                   onDoubleClick={() => setContextRider(rider)}
@@ -1026,19 +1055,6 @@ const Heat: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* Rider action log */}
-      <RiderActionLog
-        actions={riderActions}
-        isOpen={showActionLog}
-        onToggle={() => setShowActionLog(!showActionLog)}
-        onCancel={(actionId, riderName) => {
-          // The hook owns the undo: exact snapshot restore, queue slot restore,
-          // and cancelling any pending drop-to-end (BUGS.md #10, #29).
-          if (!cancelAction(actionId)) return;
-          toast.success(`Cancelled: ${riderName}`);
-        }}
-      />
     </div>
   );
 };

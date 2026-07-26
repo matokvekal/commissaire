@@ -69,6 +69,37 @@ async function racingBibWithLapsLeft(page: Page, spare: number): Promise<number>
   throw new Error(`No racing rider with ${spare} laps left. Cards: ${JSON.stringify(cards)}`);
 }
 
+/** `spare`-laps-left bibs, `count` of them, in board order. */
+async function racingBibsWithLapsLeft(page: Page, spare: number, count: number): Promise<number[]> {
+  const cards = await page
+    .locator('[data-testid^="racing-rider-"]')
+    .evaluateAll((els) =>
+      els.map((el) => {
+        const e = el as HTMLElement;
+        return { testid: e.dataset.testid ?? "", laps: e.dataset.laps ?? "" };
+      })
+    );
+  const hits = cards
+    .filter((c) => {
+      const [done, total] = c.laps.split("/").map(Number);
+      return Number.isFinite(done) && Number.isFinite(total) && total - done >= spare;
+    })
+    .map((c) => Number(c.testid.replace("racing-rider-", "")));
+  if (hits.length < count) {
+    throw new Error(`Need ${count} riders with ${spare} laps left, found ${hits.length}`);
+  }
+  return hits.slice(0, count);
+}
+
+/** Current left-to-right order of the racing grid, as bib numbers. */
+async function boardOrder(page: Page): Promise<number[]> {
+  return page
+    .locator('[data-testid^="racing-rider-"]')
+    .evaluateAll((els) =>
+      els.map((el) => Number(((el as HTMLElement).dataset.testid ?? "").replace("racing-rider-", "")))
+    );
+}
+
 test.describe("Lap recording core", () => {
   test("records a lap, blocks a second within 60s, and undoes cleanly", async ({ page }) => {
     await openLiveDemo(page);
@@ -103,6 +134,38 @@ test.describe("Lap recording core", () => {
     await expect(page.getByText("Note / Comment")).toBeVisible();
     await page.getByRole("button", { name: /Revert Last Lap/ }).click();
     await expect(card(page, bib)).toHaveAttribute("data-laps", new RegExp(`^${before + 1}/`));
+  });
+
+  /**
+   * Board hold: when a bunch arrives together the commissaire is reading bibs
+   * off the board while a second person types them, so the cards must NOT move
+   * one-by-one under them. Every tap restarts a board-wide countdown; only once
+   * the arrivals stop do all the tapped cards drop to the bottom at once, in
+   * tap order. Default hold is 2s (`stores/boardHoldStore.ts`).
+   */
+  test("board hold freezes the grid during a burst, then drops every tapped card at once", async ({ page }) => {
+    await openLiveDemo(page);
+    const [bibA, bibB] = await racingBibsWithLapsLeft(page, 2, 2);
+
+    const orderBefore = await boardOrder(page);
+    await page.clock.fastForward(5 * 60 * 1000);
+
+    // ── Tap A. It counts immediately, but the card must stay put ─────────────
+    await tap(page, bibA); // consumes 400ms of the 2s hold
+    await expect(card(page, bibA)).toHaveAttribute("data-recorded", "true");
+    expect(await boardOrder(page)).toEqual(orderBefore);
+
+    // ── A second tap 1.5s later restarts the hold — still nothing moves ──────
+    await page.clock.fastForward(1_100);
+    await tap(page, bibB); // 1.9s since tap A, under the 2s hold
+    await expect(card(page, bibB)).toHaveAttribute("data-recorded", "true");
+    expect(await boardOrder(page)).toEqual(orderBefore);
+
+    // ── Arrivals stop: both drop to the bottom together, in tap order ────────
+    await page.clock.fastForward(2_100);
+    await expect(card(page, bibA)).not.toHaveAttribute("data-recorded", "true");
+    const rest = orderBefore.filter((b) => b !== bibA && b !== bibB);
+    expect(await boardOrder(page)).toEqual([...rest, bibA, bibB]);
   });
 
   test("DNF and DSQ move a rider out of the racing grid", async ({ page }) => {

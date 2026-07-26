@@ -373,6 +373,17 @@
   padding: 0 8px;
 }
 
+/* Left column of the timer row: the rider-log toggle. The negative margin
+   cancels .timerRow's own 8px padding so the button lines up with the Joker
+   button in the search row below it (both at the wrapper's 16px edge). */
+.logSlot {
+  grid-column: 1;
+  justify-self: start;
+  display: flex;
+  align-items: center;
+  margin-left: -8px;
+}
+
 /* Hero race clock: dark plate, gold frame, glowing green digits */
 .timerText {
   grid-column: 2;
@@ -486,8 +497,8 @@
    time (incl. seconds) always fits next to the wave chip (BUGS.md #15).
    430px covers common 412/393/390-wide Android/iPhone devices (e.g. Galaxy
    A41 @ 412px CSS width) — 380px alone missed that whole bucket, leaving the
-   clock full-size and letting the fixed rider-log icon sit under it. Sized
-   to ~85% of the base clock. */
+   clock full-size and crowding it against the rider-log icon. Sized to ~85%
+   of the base clock. */
 @media (max-width: 430px) {
   .timerText {
     font-size: 22px;

@@ -148,11 +148,42 @@
   color: rgba(0,0,0,0.85);
 }
 
-/* Podium (positions 1–3): light font so it pops off the category color */
-.posPodium {
-  color: rgba(255,255,255,0.95);
-  text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+/* Podium medal (positions 1–3): the position number becomes a small metal chip
+   — gold / silver / bronze — so the top 3 of every category read at a glance.
+   Small and low-key on purpose; only the colour carries the signal. */
+.posMedal {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1;
+  color: #2a2000;
+  text-shadow: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
+
+.posGold   { background: linear-gradient(180deg, #ffe27a, #f4b300); }
+.posSilver { background: linear-gradient(180deg, #f6f8fa, #c2ccd6); }
+.posBronze { background: linear-gradient(180deg, #f0b27a, #cd7f32); color: #fff; }
+
+/* P1 gets a hair more presence — a soft gold ring — so the actual leader of
+   each category is the one thing that draws the eye first. */
+.posMedal.posGold {
+  box-shadow: 0 0 0 2px rgba(244, 179, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* PRO skin sets .pos to skewed pink text (0,3,0) — re-assert the chip so the
+   medal colours win and the number sits straight inside the pill. */
+:root[data-skin="gaming"] .posMedal {
+  color: #2a2000;
+  transform: none;
+  text-shadow: none;
+}
+:root[data-skin="gaming"] .posBronze { color: #fff; }
 
 /* ═══ PRO skin (data-skin="gaming"): arcade card treatment ═══
    The category colour is injected as an inline `background`, which resets
@@ -249,16 +280,23 @@
   animation: paceDotBlink 1s ease-in-out infinite;
 }
 
-/* Overdue: the trail collapses back to a single alert dot at top-center
-   (standard dot size — no enlarging, the blink alone is the signal) */
-.paceDotOverdue {
-  background: #ff4d4f;
-  animation: paceDotBlink 0.9s ease-in-out infinite;
+/* Overdue: the full pace ring stays solid (it no longer collapses). Only the
+   top-edge dots turn amber and blink SLOWLY — a calm, low-attention "still
+   waiting for this rider to cross" cue for the commissaire (user req).
+   Scoped under .paceDots (0,2,0) so the amber always beats .paceDot (0,1,0). */
+.paceDots .paceDotWaiting {
+  background: #f5a623;
+  animation: paceDotWaitingBlink 2.2s ease-in-out infinite;
 }
 
 @keyframes paceDotBlink {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.15; }
+}
+
+@keyframes paceDotWaitingBlink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
 }
 
 /* Click/voice-confirm flash — one-shot bright glow that fades out */
@@ -270,4 +308,39 @@
   0%   { box-shadow: 0 0 0 5px #fff, 0 0 34px 14px var(--glow-color, #fff); }
   30%  { box-shadow: 0 0 0 3px rgba(255,255,255,0.7), 0 0 22px 7px var(--glow-color, #fff); }
   100% { box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+}
+
+/* ── Recorded, waiting for the board hold ──────────────────────────────────
+   The lap is in; the card just hasn't dropped to the bottom yet because riders
+   are still arriving. The flash only lasts ~1s and only ever plays on the most
+   recently tapped card, so it can't carry this — during a 20-rider bunch the
+   commissaire needs to see, at a glance, every card that's already done.
+   A washed-out overlay (not `filter`/`opacity` on the card, which would drag
+   the tick down with it) plus a green tick. */
+.recorded::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.recordedTick {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: #16a34a;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 19px;
+  text-align: center;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  z-index: 2;
 }

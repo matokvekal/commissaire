@@ -37,7 +37,8 @@ export const saveRace = async (
   imageUrl: string | null,
   file: File | null,
   setAddNewwRace: (value: boolean) => void,
-  autoColor: boolean = true
+  autoColor: boolean = true,
+  raceType: "MTB" | "Gravel" = "MTB"
 ) => {
   event.preventDefault();
 
@@ -68,6 +69,7 @@ export const saveRace = async (
       heat: "1",
       status: "upcoming",
       type: "Competition",
+      raceType,
       level: "1",
       orgenizer: "Race Org",
       manager: "John Doe",

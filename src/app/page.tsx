@@ -1,6 +1,8 @@
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import ArcadeTopbar from "@/components/arcade/ArcadeTopbar";
 import Footer from "@/components/Footer/Footer";
+import { hasAcceptedCurrentTerms, acceptCurrentTerms } from "./legal/termsAcceptance";
 import "@/styles/arcade.css";
 import styles from "./landing.module.css";
 
@@ -47,9 +49,39 @@ const TICKER = [
 export default function LandingPage() {
   const navigate = useNavigate();
 
+  // The app is free with no login, so the Terms & Conditions are accepted right
+  // here — before "Press Start" takes the user into the app. Acceptance is
+  // persisted + versioned (localStorage), so it's asked once; on later visits
+  // the checkbox is gone and the buttons are live.
+  const [termsAccepted, setTermsAccepted] = useState(() => hasAcceptedCurrentTerms());
+
+  const handleAcceptTerms = (checked: boolean) => {
+    setTermsAccepted(checked);
+    if (checked) acceptCurrentTerms();
+  };
+
   const handleEnter = () => {
+    if (!termsAccepted) return;
     navigate("/main");
   };
+
+  // Rendered above each "enter the app" CTA; hides itself once accepted.
+  const termsGate = termsAccepted ? null : (
+    <label className={styles.termsAgree} dir="auto">
+      <input
+        type="checkbox"
+        checked={termsAccepted}
+        onChange={(e) => handleAcceptTerms(e.target.checked)}
+      />
+      <span>
+        I have read and agree to the{" "}
+        <Link className={styles.termsLink} to="/terms" target="_blank" rel="noopener noreferrer">
+          Terms &amp; Conditions
+        </Link>
+        .
+      </span>
+    </label>
+  );
 
   const tickerLine = TICKER.map((item) => `${item}  ✦  `).join("");
 
@@ -70,7 +102,13 @@ export default function LandingPage() {
             gravel events — check-in, timing, and live standings, built for
             dust, mud, and no signal.
           </p>
-          <button className={styles.cta} onClick={handleEnter}>
+          {termsGate}
+          <button
+            className={styles.cta}
+            onClick={handleEnter}
+            disabled={!termsAccepted}
+            title={termsAccepted ? undefined : "Accept the Terms & Conditions to continue"}
+          >
             ▶ Press Start
           </button>
           <p className={styles.ctaHint}>
@@ -140,7 +178,13 @@ export default function LandingPage() {
 
       <div className={styles.finalCta}>
         <h2 className={styles.finalTitle}>Ready to race?</h2>
-        <button className={styles.cta} onClick={handleEnter}>
+        {termsGate}
+        <button
+          className={styles.cta}
+          onClick={handleEnter}
+          disabled={!termsAccepted}
+          title={termsAccepted ? undefined : "Accept the Terms & Conditions to continue"}
+        >
           ▶ Enter the App
         </button>
       </div>

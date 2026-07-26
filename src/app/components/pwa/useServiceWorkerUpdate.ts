@@ -22,6 +22,17 @@ export function useServiceWorkerUpdate() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
 
+    // In development, never let a service worker cache modules — it serves the
+    // old bundle cache-first even through a hard refresh, masking every edit.
+    // Tear down any SW a previous prod build (or an earlier dev run) left behind.
+    if (import.meta.env.DEV) {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((r) => r.unregister());
+      });
+      caches?.keys?.().then((keys) => keys.forEach((k) => caches.delete(k)));
+      return;
+    }
+
     const swUrl = `${import.meta.env.BASE_URL}sw.js`;
 
     // Only treat an installed worker as an *update* when a controller already

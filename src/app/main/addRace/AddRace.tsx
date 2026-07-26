@@ -19,6 +19,14 @@ const FALLBACK_IMAGES = [
   Images.defaultRaceBike,
 ];
 
+// Race discipline. MTB is the only one live for now; the rest are shown as a
+// "Soon" preview so organizers know they're coming (and disabled until ready).
+type RaceType = "MTB" | "Gravel";
+const RACE_TYPES: { value: RaceType; label: string; soon?: boolean }[] = [
+  { value: "MTB", label: "MTB" },
+  { value: "Gravel", label: "Gravel", soon: true },
+];
+
 const today = new Date().toISOString().split("T")[0];
 const BASE = import.meta.env.BASE_URL; // "/commissire-race/" in prod, "/" in dev
 
@@ -32,6 +40,7 @@ const AddRace: React.FC<Props> = ({ setAddNewwRace }) => {
   );
 
   const [raceName,    setRaceName]    = useState(`Race ${races.length + 1}`);
+  const [raceType,    setRaceType]    = useState<RaceType>("MTB");
   const [startDate,   setStartDate]   = useState(today);
   const [location,    setLocation]    = useState("TBD");
   const [status,      setStatus]      = useState("");
@@ -106,7 +115,8 @@ const AddRace: React.FC<Props> = ({ setAddNewwRace }) => {
         selectedImage,
         ridersFile,
         setAddNewwRace,
-        autoColor
+        autoColor,
+        raceType
       );
     } catch (error) {
       console.error("Failed to save race:", error);
@@ -180,6 +190,27 @@ const AddRace: React.FC<Props> = ({ setAddNewwRace }) => {
         )}
 
         <div className={styles.lowerPart}>
+          {/* ── Race type ── MTB is live; others are previewed as "Soon". */}
+          <div className={styles.raceTypeField}>
+            <span className={styles.raceTypeLabel}>Race Type</span>
+            <div className={styles.raceTypeOptions}>
+              {RACE_TYPES.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`${styles.raceTypeBtn} ${raceType === opt.value ? styles.raceTypeBtnActive : ""}`}
+                  onClick={() => !opt.soon && setRaceType(opt.value)}
+                  disabled={opt.soon}
+                  aria-pressed={raceType === opt.value}
+                  title={opt.soon ? `${opt.label} — coming soon` : `${opt.label} race`}
+                >
+                  {opt.label}
+                  {opt.soon && <span className={styles.raceTypeSoon}>Soon</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <input
             type="text"
             placeholder="Race Name"

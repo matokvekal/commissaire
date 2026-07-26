@@ -40,6 +40,12 @@ export interface RaceProps {
   heat: string;
   status?: "finished" | "running" | "upcoming";
   type: string;
+  /**
+   * Discipline picked when the race is created. "MTB" is the default; more
+   * disciplines (Gravel, …) are planned. Undefined counts as "MTB" so existing
+   * races keep rendering.
+   */
+  raceType?: "MTB" | "Gravel";
   level: string;
   orgenizer: string;
   manager: string;

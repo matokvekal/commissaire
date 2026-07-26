@@ -6,20 +6,19 @@ import Version from "@/components/Version/Version";
 import { useNavigate } from "react-router-dom";
 import { useDataStore } from "@/stores/appStore";
 import Cookies from "js-cookie";
-import { Bike, Download, Gamepad2, LogOut, Mail, Menu, MessageCircle, Palette, UserRound, X } from "lucide-react";
+import { Bike, Download, Gamepad2, LogOut, Mail, Menu, MessageCircle, Palette, Timer, UserRound, X } from "lucide-react";
 // Relative: tsconfig only aliases specific "@/…" prefixes, and config isn't one.
 import { VERSION } from "../../../config/index";
 import { useTheme, type Theme } from "@/hooks/useTheme";
 import { useSkin, type Skin } from "@/hooks/useSkin";
 import { useJokerMode } from "@/hooks/useJokerMode";
+import { BOARD_HOLD_OPTIONS, useBoardHold } from "@/stores/boardHoldStore";
 import { usePwaInstall } from "@/components/pwa/usePwaInstall";
 
 const THEME_OPTIONS: { value: Theme; label: string; bg: string; accent: string; text: string }[] = [
   { value: 'light',    label: 'Light',    bg: '#f5f8fc', accent: '#63a6fc', text: '#14243c' },
   { value: 'dark',     label: 'Dark',     bg: '#161b22', accent: '#63a6fc', text: '#e4e9f0' },
   { value: 'contrast', label: 'Sun',      bg: '#ffffff', accent: '#0057ff', text: '#000000' },
-  { value: 'warm',     label: 'Warm',     bg: '#fbf3e0', accent: '#c87400', text: '#2d1810' },
-  { value: 'night',    label: 'Night',    bg: '#040812', accent: '#00c8ff', text: '#d2ebff' },
 ];
 
 /** Where side-menu feedback lands. */
@@ -37,6 +36,7 @@ function HeaderMain() {
   const { theme, setTheme } = useTheme();
   const { skin, setSkin } = useSkin();
   const { jokerEnabled, toggleJokerEnabled } = useJokerMode();
+  const { holdMs, setHoldMs } = useBoardHold();
   const { canInstall, promptInstall } = usePwaInstall();
 
   useEffect(() => {
@@ -65,7 +65,7 @@ function HeaderMain() {
         </Button>
         <div className={styles.head}>
           <span className={styles.headMain}>Commissaire</span>
-          <span className={styles.headSub}>Bike Race</span>
+          <span className={styles.headSub}>focus the race not the paper</span>
         </div>
         <div className={styles.right}>
           <Button
@@ -97,7 +97,10 @@ function HeaderMain() {
         className={`${styles.drawer} ${drawerOpen ? styles.drawerOpen : ""}`}
       >
         <div className={styles.drawerHeader}>
-          <div className={styles.drawerTitle}>Commissire - Bike Race</div>
+          <div className={styles.drawerTitleContainer}>
+            <div className={styles.drawerTitle}>Commissaire</div>
+            <div className={styles.drawerSlogan}>focus the race not the paper</div>
+          </div>
           <Button
             variant="icon"
             size="md"
@@ -286,6 +289,34 @@ function HeaderMain() {
           <p className={styles.jokerToggleDesc}>
             Tap it to stamp a rider's arrival time instantly when you can't
             read their bib in time — assign the bib afterward.
+          </p>
+        </div>
+
+        {/* Board hold — stops the live board reshuffling under the commissaire
+            while a whole bunch is being called out. Also on the live screen's
+            settings gear, so it can be retuned mid-wave. */}
+        <div className={styles.themeSection}>
+          <div className={styles.themeSectionLabel}>
+            <Timer className={styles.themeSectionIcon} aria-hidden="true" />
+            Board Hold
+          </div>
+          <select
+            className={styles.boardHoldSelect}
+            value={holdMs}
+            onChange={(e) => setHoldMs(Number(e.target.value))}
+            aria-label="Board hold delay"
+          >
+            {BOARD_HOLD_OPTIONS.map((ms) => (
+              <option key={ms} value={ms}>
+                {ms / 1000} seconds{ms === 2000 ? ' (default)' : ''}
+              </option>
+            ))}
+          </select>
+          <p className={styles.jokerToggleDesc}>
+            When riders arrive in a bunch, tapped cards stay put — marked with a
+            green ✓ — and all drop to the bottom together once {holdMs / 1000}{' '}
+            seconds pass with no new tap. Stops the board reshuffling while
+            you're still reading bibs.
           </p>
         </div>
 

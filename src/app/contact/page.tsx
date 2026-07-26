@@ -4,7 +4,7 @@ import Footer from "@/components/Footer/Footer";
 import "@/styles/arcade.css";
 import styles from "./contact.module.css";
 
-const CONTACT_EMAIL = "mictavim@gmail.com";
+const CONTACT_EMAIL = "info@commissaire.us";
 
 const CHANNELS = [
   {

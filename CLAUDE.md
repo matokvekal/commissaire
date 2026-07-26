@@ -158,9 +158,9 @@ See `docs/app-review.md` for full bug list. Top 4 critical:
   wizard. It has a UTF-8 BOM (Excel needs it for Hebrew) — preserve it if editing.
 
 ### Live tap / undo (heat page)
-- Tapping a rider records a lap and, after a 1s flash, drops them to the end of
-  `displayOrder` (the manual queue). The timer is held in `reorderTimersRef` per
-  rider so an undo inside that window can cancel the move.
+- Tapping a rider records a lap and eventually drops them to the end of
+  `displayOrder` (the manual queue) — but only after the **board hold** expires;
+  see below. Undo before then cancels the move.
 - Every action in the log carries `prevRider` (exact pre-tap snapshot) +
   `prevOrderIndex`. Undo restores from the snapshot — never rebuild state from
   `lapsDetails`, that drops `elapsedTimeFromStart` and `position_category`.
@@ -170,6 +170,37 @@ See `docs/app-review.md` for full bug list. Top 4 critical:
   per wave to localStorage (`commissaire.actionLog.${raceUuid}:heat:${heatId}`) so
   a mid-wave reload restores it. `useLapRecording` takes `persistKey`; it hydrates
   synchronously and guards against writing the previous wave's log under a new key.
+
+### Board hold (heat page) — why tapped cards don't move immediately
+- Problem: at the end of a lap a bunch of ~20 riders crosses together. One
+  commissaire shouts bibs, another types them. Dropping each card to the end of
+  the queue on its own timer reshuffled the board about once a second, so the
+  typist lost track of where the next card was.
+- The fix is a **board-wide trailing debounce**, NOT a per-card delay — that
+  distinction is the whole point. A per-card delay changes nothing: with taps
+  arriving once a second, cards still move once a second, just later. Instead
+  every tap restarts ONE shared timer (`holdTimerRef` in `useLapRecording`), so
+  the board is completely frozen for the length of the burst; when the arrivals
+  stop, every pending card drops to the bottom in a single `setDisplayOrder`,
+  in tap order. Do not "simplify" this back to per-rider timers.
+- Only the card's POSITION is deferred. Lap count, lap time, `timeArrive`, the
+  since-arrive clock and the action-log entry all land at tap time, unchanged.
+- `pendingMoveRef` (`Map<riderId, didFinish>`, insertion-ordered) holds the
+  queue; it's mirrored to `pendingMoveIds` state so cards can render the
+  "recorded, waiting" state (`data-recorded="true"`, washed-out overlay + green
+  ✓ in `RacingRider`). That marker is REQUIRED, not decoration: the drop to the
+  bottom used to be the only confirmation a tap registered, and the flash lasts
+  ~1s and only ever plays on the most recently tapped card.
+- `maxBoardHoldMs()` (3× the hold, min 10s) force-flushes from the FIRST pending
+  card so a steady trickle can't restart the debounce forever and freeze the
+  board for the whole race.
+- Both undo paths (`restoreFromSnapshot`, `cancelAction`) call `dropPendingMove`,
+  and a wave change clears the queue without applying it.
+- Delay is user-selectable (1/2/3/5/10s, default 2) in `stores/boardHoldStore.ts`
+  — a zustand store, not a hook like `useJokerMode`, because it's edited from the
+  main side menu AND the live screen's settings gear (`VoiceSettingsModal`, now
+  titled "Live Settings") and the heat page must pick up the change without a
+  remount.
 
 ### Joker button (heat page) — unidentified-rider taps
 - Opt-in via a side-menu checkbox (`useJokerMode`, localStorage
@@ -254,11 +285,20 @@ See `docs/app-review.md` for full bug list. Top 4 critical:
   Name always show. Choice persists in localStorage (`resultsVisibleFields`). Rows
   are flexbox so hiding a column reflows and gives the name room.
 
-### Terms & Conditions (startup gate)
+### Terms & Conditions (landing-page acceptance)
 - Content lives in `legal/terms.ts` (the ONLY file to edit; it's a DRAFT, not
-  lawyer-reviewed). `TermsGate` (rendered in `App.tsx`) blocks the app until the
-  user accepts; acceptance is persisted + versioned in `legal/termsAcceptance.ts`.
-  Bump `TERMS_VERSION` to re-prompt everyone. The `/terms` route shows the full text.
+  lawyer-reviewed). Acceptance is persisted + versioned in
+  `legal/termsAcceptance.ts` (`hasAcceptedCurrentTerms` / `acceptCurrentTerms`,
+  localStorage key `termsAcceptance`). Bump `TERMS_VERSION` to re-prompt everyone.
+  The `/terms` route shows the full text.
+- The app is free with no login, so terms are accepted on the LANDING page
+  (`app/page.tsx`) — an "I have read and agree" checkbox (with a `/terms` link)
+  GATES the "Press Start" / "Enter the App" CTAs: both are `disabled` and
+  `handleEnter` refuses until `termsAccepted`. The checkbox hides once accepted
+  (asked once). There is no longer a full-screen startup gate.
+- Tests seed the localStorage acceptance record directly (`acceptTerms` in
+  `tests/helpers.ts`, using `TERMS_VERSION`); they also navigate straight to
+  `/main`, which bypasses the landing CTA anyway.
 
 ### Laps: the category is the source of truth
 - `rider.totalLaps` is only a cache of `category.laps`. Riders imported without a

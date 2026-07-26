@@ -80,6 +80,25 @@
   font-size: 14px;
 }
 
+.select {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+  background: #f9fafb;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.select:focus {
+  outline: none;
+  border-color: #0ea5e9;
+  background: #fff;
+}
+
 .languageToggle {
   display: flex;
   gap: 8px;
