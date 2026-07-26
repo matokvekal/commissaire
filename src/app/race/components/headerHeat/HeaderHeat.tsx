@@ -50,7 +50,7 @@ function HeaderHeat({ raceId, onSettingsClick }: { raceId: string; onSettingsCli
           <div className={styles.timeLabel}>Clock</div>
           <div className={styles.time}>{currentTime}</div>
         </div>
-        <button className={styles.settingsBtn} onClick={onSettingsClick} title="Voice settings">
+        <button className={styles.settingsBtn} onClick={onSettingsClick} title="Live settings">
           <Settings size={18} />
         </button>
       </div>

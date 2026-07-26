@@ -5,6 +5,12 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   base: '/',
+  build: {
+    // The Pages artifact is public — never ship source maps (they embed the
+    // full original TypeScript). `npm run build` additionally runs
+    // scripts/verify-dist.mjs to strip anything else that leaked via public/.
+    sourcemap: false,
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src/app'),

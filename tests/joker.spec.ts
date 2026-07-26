@@ -105,6 +105,11 @@ test.describe("Joker button", () => {
     await expect(jokerCard(page, 1)).toHaveCount(0);
     await expect(page.getByText(/Unresolved/)).toHaveCount(0);
     expect(await lapsOf(page, bib)).toBe(before + 1);
+    // Resolution goes through the same recordLap as a tap, so the card takes
+    // part in the board hold like any other arrival — ✓ now, move later.
+    await expect(card(page, bib)).toHaveAttribute("data-recorded", "true");
+    await page.clock.fastForward(3_000);
+    await expect(card(page, bib)).not.toHaveAttribute("data-recorded", "true");
 
     // Revert Last Lap undoes a Joker-originated lap exactly like a normal one —
     // it rides the same action log, no special-case undo code.
