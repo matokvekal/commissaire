@@ -1,5 +1,11 @@
 import { test, expect, Page } from "@playwright/test";
-import { acceptTerms } from "./helpers";
+import {
+  acceptTerms,
+  openLiveDemo,
+  racingCard as card,
+  tapWithSettle as tap,
+  racingBibWithLapsLeft,
+} from "./helpers";
 
 /**
  * The Joker button: stamp an unidentified rider's arrival time+order instantly
@@ -10,14 +16,7 @@ import { acceptTerms } from "./helpers";
  * laps and the 300ms tap-disambiguation timer both make real time unusable.
  */
 
-const card = (page: Page, bib: number) => page.locator(`[data-testid="racing-rider-${bib}"]`);
 const jokerCard = (page: Page, seq: number) => page.locator(`[data-testid="joker-card-${seq}"]`);
-
-/** Tap once and let the fake clock clear the single/double-tap window. */
-async function tap(page: Page, bib: number) {
-  await card(page, bib).click();
-  await page.clock.fastForward(400);
-}
 
 async function lapsOf(page: Page, bib: number): Promise<number> {
   const attr = (await card(page, bib).getAttribute("data-laps")) ?? "";
@@ -29,42 +28,6 @@ async function enableJokerMode(page: Page) {
   await page.getByRole("button", { name: "Open menu" }).click();
   await page.getByRole("checkbox", { name: /Show Joker button/i }).check();
   await page.getByRole("button", { name: "Close menu" }).click();
-}
-
-async function openLiveDemo(page: Page) {
-  await page.goto("/main");
-  await acceptTerms(page);
-  await page.getByRole("button", { name: /Try Demo Race/i }).click();
-  await page.waitForURL(/\/race\/demo-race-99001/);
-  // The demo's one-shot onboarding lands us on Live; make sure we're there.
-  await expect(async () => {
-    if (!/\/heat\//.test(page.url())) {
-      await page.getByRole("tab", { name: "Live", exact: true }).click();
-    }
-    await expect(page.locator('[data-testid^="racing-rider-"]').first()).toBeVisible({
-      timeout: 2_000,
-    });
-  }).toPass({ timeout: 20_000 });
-}
-
-/** A bib with at least `spare` laps still to run, so taps record laps instead
- * of finishing the rider and removing their card. */
-async function racingBibWithLapsLeft(page: Page, spare: number): Promise<number> {
-  const cards = await page
-    .locator('[data-testid^="racing-rider-"]')
-    .evaluateAll((els) =>
-      els.map((el) => {
-        const e = el as HTMLElement;
-        return { testid: e.dataset.testid ?? "", laps: e.dataset.laps ?? "" };
-      })
-    );
-  for (const c of cards) {
-    const [done, total] = c.laps.split("/").map(Number);
-    if (Number.isFinite(done) && Number.isFinite(total) && total - done >= spare) {
-      return Number(c.testid.replace("racing-rider-", ""));
-    }
-  }
-  throw new Error(`No racing rider with ${spare} laps left. Cards: ${JSON.stringify(cards)}`);
 }
 
 test.describe("Joker button", () => {

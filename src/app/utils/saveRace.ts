@@ -5,6 +5,8 @@ import { saveRidersFromCsv, saveRidersFromRows } from "./insertRidersCsv";
 import { clearRaceState } from "@/utils/clearRaceState";
 import Images from "@/constants/Images";
 import { generateRaceId } from "@/services/RaceSync";
+import useRiderStore from "@/stores/ridersStore";
+import { logAnalyticsEvent } from "@/services/analytics/analyticsClient";
 
 const DEFAULT_IMAGES = [
   Images.bikeMountainSplash,
@@ -110,6 +112,11 @@ export const saveRace = async (
         throw error;
       }
     }
+    logAnalyticsEvent("race_created", {
+      race_id: newRace.raceId,
+      rider_count: useRiderStore.getState().riders.length,
+    });
+
     setAddNewwRace(false);
   } catch (error) {
 

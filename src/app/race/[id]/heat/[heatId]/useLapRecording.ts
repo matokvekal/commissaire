@@ -5,6 +5,7 @@ import { formatTime, parseClockTime } from "@/utils/timeUtils";
 import calculatePositions from "@/utils/calculatePosition";
 import { recordRaceEvent } from "@/services/cloud/raceEvents";
 import { canForRace } from "@/services/cloud/permissions";
+import { logAnalyticsEvent } from "@/services/analytics/analyticsClient";
 
 /**
  * The lap-recording core of the live heat screen (BUGS.md #29).
@@ -200,6 +201,7 @@ export function useLapRecording({
     lastActionRef.current = { riderId: rider.id, timestamp: now };
     updateRider(updatedRider);
     updateAllRiders(finalSorted);
+    logAnalyticsEvent("lap_recorded", { source, race_uuid: raceUuid });
 
     void recordRaceEvent({
       raceUuid,

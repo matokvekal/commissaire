@@ -164,9 +164,9 @@ Source: `src/app/utils/calculatePosition.ts`
   **earlier `timeArrive` first**. (`calculatePosition.ts:21-29,38-45`)
 - **RULE-POS-03** — `position_category` is the 1-based rank within the rider's category;
   `position_race` is the 1-based overall rank. (`calculatePosition.ts:32-33,48-49`)
-- **RULE-POS-04** — *(Known defect — BUG-03)* `calculatePositions` mutates rider objects in
-  place rather than returning copies. Tests should not rely on input immutability.
-  (`calculatePosition.ts` — see `docs/app-review.md`)
+- **RULE-POS-04** — *(Known defect — BUG-03, confirmed still open)* `calculatePositions`
+  mutates rider objects in place rather than returning copies. Tests should not rely on
+  input immutability. (`calculatePosition.ts` L61 — see `BUGS.md` item 6)
 
 ---
 
@@ -208,5 +208,5 @@ Source: `src/app/utils/timeUtils.ts`
 2. Rules referencing permissions (`MARK_LAP`, `CHECKIN_RIDER`, `MARK_DNF`, `MARK_DNS`) need a
    role/permission fixture — see `docs/cloud/` for the roles model.
 3. Known-defect rules (e.g. RULE-POS-04) document *current* behavior; a test may assert the bug
-   or be marked pending the fix in `docs/app-review.md`.
+   or be marked pending the fix tracked in `BUGS.md`.
 4. When you change a rule in code, update its entry here so the catalog stays the source of truth.

@@ -1,6 +1,6 @@
 # Commissaire — App Overview for Agents
 
-**Last Updated:** 2026-06-27  
+**Last Updated:** 2026-07-25  
 **Tech Stack:** React + Vite + React Router v6, TypeScript, Zustand, IndexedDB (`idb`)
 
 > Note: uses `[id]` folder names and `layout.tsx` but is NOT Next.js — routing is React Router v6.
@@ -14,7 +14,7 @@ Read this file first, then drill into the specific doc as needed.
 ### Feature Docs
 | Need | File |
 |------|------|
-| Bug list + code review | `docs/app-review.md` |
+| Open bugs | `BUGS.md` |
 | Feature roadmap (phases 1–5) | `docs/roadmap.md` |
 | CSV import component flow | `docs/csv-import.md` |
 | Photo/OCR start-list import (offline tesseract.js) | `docs/local-ocr.md` |
@@ -71,7 +71,7 @@ public/data/
 - **IndexedDB** (`commissireDb` v8) is the source of truth — stores: `riders`, `categories`, `races`, `roles`, `users`
 - **Zustand** is the in-memory cache — each store has a custom IDB adapter
 - Load pattern: Zustand cache hit → short-circuit (never touches IDB again)
-- **WARNING:** IDB VersionError handler currently deletes all data (see BUG-02 in `docs/app-review.md`)
+- **WARNING:** IDB VersionError handler currently deletes all data (see BUG-02 in `BUGS.md`)
 
 ### State Stores
 | Store | Purpose | Persisted |
@@ -105,12 +105,10 @@ public/data/
 - Standing/leaderboard page per wave
 - Results tab
 
-### Known Issues (2026-06-27)
-See `docs/app-review.md` for full bug list. Top 4 critical:
-1. **BUG-01** — Results timing broken (`timeStartRace` stored as "HH:MM:SS", parsed as Invalid Date)
-2. **BUG-02** — IDB VersionError handler deletes all race data
-3. **BUG-03** — `calculatePositions` mutates Zustand store objects in place
-4. **BUG-05** — DSQ/DNS toggles in Schedule don't update `raceStatus`
+### Known Issues
+See `BUGS.md` for current open items (BUG-01 and BUG-10 from the old bug list are
+confirmed fixed and no longer tracked; BUG-03, BUG-05, and BUG-13 are confirmed
+still open).
 
 ### Next Phases (see `docs/roadmap.md`)
 1. **Phase 1** — Bug fixes (see checklist in roadmap.md)
@@ -132,7 +130,7 @@ See `docs/app-review.md` for full bug list. Top 4 critical:
 ### Common Tasks
 | Task | Where to start |
 |---|---|
-| Fix a bug | `docs/app-review.md` → find bug → listed file + line |
+| Fix a bug | `BUGS.md` → find item → listed file + line |
 | Add new rider field | `types.ts` → `rowToRider` in CSVImportWizard → display components |
 | Fix CSV import bug | `docs/csv-import.md` → csvMapper.ts |
 | Add dictionary entry | `public/data/*.json` |

@@ -1,5 +1,11 @@
 import { test, expect, Page } from "@playwright/test";
-import { acceptTerms } from "./helpers";
+import {
+  openLiveDemo as openLiveDemoBase,
+  racingCard as card,
+  finishedCard as finished,
+  tapWithSettle as tap,
+  racingBibWithLapsLeft,
+} from "./helpers";
 
 /**
  * Safety net for the lap-recording core on the Live screen — the highest-risk
@@ -11,30 +17,10 @@ import { acceptTerms } from "./helpers";
  * timer both make real time unusable — see the full-race spec).
  */
 
-const card = (page: Page, bib: number) => page.locator(`[data-testid="racing-rider-${bib}"]`);
-const finished = (page: Page, bib: number) => page.locator(`[data-testid="finish-rider-${bib}"]`);
-
-/** Tap once and let the fake clock clear the single/double-tap window. */
-async function tap(page: Page, bib: number) {
-  await card(page, bib).click();
-  await page.clock.fastForward(400);
-}
-
+/** This spec always wants the clock installed before landing on Live. */
 async function openLiveDemo(page: Page) {
   await page.clock.install({ time: new Date("2026-07-21T09:00:00") });
-  await page.goto("/main");
-  await acceptTerms(page);
-  await page.getByRole("button", { name: /Try Demo Race/i }).click();
-  await page.waitForURL(/\/race\/demo-race-99001/);
-  // The demo's one-shot onboarding lands us on Live; make sure we're there.
-  await expect(async () => {
-    if (!/\/heat\//.test(page.url())) {
-      await page.getByRole("tab", { name: "Live", exact: true }).click();
-    }
-    await expect(page.locator('[data-testid^="racing-rider-"]').first()).toBeVisible({
-      timeout: 2_000,
-    });
-  }).toPass({ timeout: 20_000 });
+  await openLiveDemoBase(page);
 }
 
 /** Any bib currently racing. */
@@ -44,29 +30,6 @@ async function anyRacingBib(page: Page): Promise<number> {
     .first()
     .getAttribute("data-testid");
   return Number(id!.replace("racing-rider-", ""));
-}
-
-/**
- * A bib with at least `spare` laps still to run — so the taps below record laps
- * instead of finishing the rider and removing their card. The demo seeds
- * mid-race, and its leader is on his last lap.
- */
-async function racingBibWithLapsLeft(page: Page, spare: number): Promise<number> {
-  const cards = await page
-    .locator('[data-testid^="racing-rider-"]')
-    .evaluateAll((els) =>
-      els.map((el) => {
-        const e = el as HTMLElement;
-        return { testid: e.dataset.testid ?? "", laps: e.dataset.laps ?? "" };
-      })
-    );
-  for (const c of cards) {
-    const [done, total] = c.laps.split("/").map(Number);
-    if (Number.isFinite(done) && Number.isFinite(total) && total - done >= spare) {
-      return Number(c.testid.replace("racing-rider-", ""));
-    }
-  }
-  throw new Error(`No racing rider with ${spare} laps left. Cards: ${JSON.stringify(cards)}`);
 }
 
 test.describe("Lap recording core", () => {

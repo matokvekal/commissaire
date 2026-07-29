@@ -56,6 +56,7 @@
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   margin-bottom: 4px;
+  flex-shrink: 0;
 }
 
 .searchWrapperLeft {
@@ -290,6 +291,18 @@
   gap: 8px;
 }
 
+/* Tablet/laptop (≥900px): pack cards explicitly rather than leaving density to
+   whatever flex-wrap happens to fit — same 76px card, just guaranteed several
+   per row instead of it being incidental. Cards do NOT get bigger here. */
+@media (min-width: 900px) {
+  .riderGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 76px);
+    justify-content: start;
+    gap: 10px;
+  }
+}
+
 /* Section bands: glossy game bands — green for racing, navy for finished */
 .active, .finishers {
   margin-top: 5px;
@@ -371,6 +384,7 @@
   gap: 6px;
   height: 60px;
   padding: 0 8px;
+  flex-shrink: 0;
 }
 
 /* Hero race clock: dark plate, gold frame, glowing green digits */

@@ -6,6 +6,7 @@ import TermsGate from "./app/components/legal/TermsGate";
 import { InstallPrompt } from "./app/components/pwa/InstallPrompt";
 import { UpdatePrompt } from "./app/components/pwa/UpdatePrompt";
 import { isCloudConfigured } from "./app/services/cloud/cloudConfig";
+import { initAnalytics } from "./app/services/analytics/analyticsClient";
 
 // Route-level code splitting (BUGS.md #1). The landing page (`/`) stays eager as
 // the first paint; every other screen — especially the heavy Race/Heat views that
@@ -42,6 +43,12 @@ export default function App() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // No-op when VITE_FIREBASE_* env vars aren't set; the Firebase SDK itself is
+  // dynamically imported so it never lands in the eager bundle either way.
+  useEffect(() => {
+    initAnalytics();
   }, []);
 
   return (

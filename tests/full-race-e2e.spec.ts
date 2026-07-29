@@ -3,7 +3,15 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 import * as XLSX from "xlsx";
-import { acceptTerms, selectWave } from "./helpers";
+import {
+  acceptTerms,
+  selectWave,
+  racingCard,
+  finishedCard,
+  tapWithSettle,
+  checkInRow,
+  setStatusAtCheckIn,
+} from "./helpers";
 
 /**
  * Full end-to-end run of a real race day, start to finish.
@@ -99,9 +107,6 @@ const TOTAL_RIDERS = CSV_RIDERS + LATE_ENTRIES.length;
 
 // ─── Clock helpers ───────────────────────────────────────────────────────────
 
-/** Nudge the fake clock just past the 300 ms single/double tap window. */
-const TAP_SETTLE_MS = 400;
-
 async function advanceLap(page: Page): Promise<void> {
   await page.clock.fastForward(LAP_MINUTES * 60 * 1000);
 }
@@ -143,19 +148,8 @@ function scheduleCategoryRow(page: Page, categoryName: string): Locator {
 
 // ─── Rider helpers ───────────────────────────────────────────────────────────
 
-function racingCard(page: Page, bib: number): Locator {
-  return page.locator(`[data-testid="racing-rider-${bib}"]`);
-}
-
-function finishedCard(page: Page, bib: number): Locator {
-  return page.locator(`[data-testid="finish-rider-${bib}"]`);
-}
-
-/** Record one lap for a rider, then let the fake clock settle the tap. */
-async function tapRider(page: Page, bib: number): Promise<void> {
-  await racingCard(page, bib).click();
-  await page.clock.fastForward(TAP_SETTLE_MS);
-}
+/** Record one lap for a rider, then let the fake clock settle the tap (hoisted as `tapWithSettle`). */
+const tapRider = tapWithSettle;
 
 /** Bibs currently on the racing grid, in display order. */
 async function racingBibs(page: Page): Promise<number[]> {
@@ -709,27 +703,6 @@ async function flagOffEarly(page: Page, plan: WavePlan): Promise<void> {
   await tapRider(page, oneMore);
   await expect(racingCard(page, oneMore)).toHaveCount(0);
   await expect(finishedCard(page, oneMore)).toHaveAttribute("data-status", "FIN");
-}
-
-/** A rider's row on the Check-In list. */
-function checkInRow(page: Page, bib: number): Locator {
-  return page.getByTestId(`checkin-row-${bib}`);
-}
-
-/** Change a rider's status via the check-in row's Status menu. */
-async function setStatusAtCheckIn(
-  page: Page,
-  bib: number,
-  status: "DNS" | "DNF" | "DSQ"
-): Promise<void> {
-  const row = checkInRow(page, bib);
-  await row.getByRole("button", { name: "Status" }).click();
-  // Scoped to the modal — the row itself now carries a one-tap DNS button, so
-  // a bare getByText("DNS") is ambiguous.
-  const modal = page.locator('[class*="modalbottom"]').first();
-  await expect(modal).toBeVisible();
-  await modal.getByText(status, { exact: true }).click();
-  await expect(row.getByRole("button", { name: status })).toBeVisible();
 }
 
 /**

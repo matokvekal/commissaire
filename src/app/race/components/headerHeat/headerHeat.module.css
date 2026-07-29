@@ -1,5 +1,12 @@
 .headerRace {
   height: 64px;
+  /* Sibling .wrapper uses flex:1 (flex-basis 0%), so when total page content
+     is taller than the viewport (shorter, wider laptop screens hit this far
+     more than a phone held vertically), the browser's shrink math gives this
+     header — whose own flex-basis is its natural ~64px, not 0 — almost all of
+     the negative space, squashing/clipping the title. Same fix HeaderMain's
+     own header already has. */
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;

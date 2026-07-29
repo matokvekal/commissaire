@@ -7,7 +7,7 @@ import useRaceStore from "@/stores/racesStore";
 import useRiderStore from "@/stores/ridersStore";
 import useCategoryStore from "@/stores/categoryStore";
 import { useAuthStore } from "@/stores/authStore";
-import { Edit2, Check, X, ExternalLink, Download, Upload, ShieldCheck } from "lucide-react";
+import { Edit2, Check, X, ExternalLink, Download, Upload, ShieldCheck, ScrollText } from "lucide-react";
 // xlsx (~430 kB) and its wrappers load on demand from the handlers below so they
 // stay out of the Race page's initial chunk (BUGS.md #1). Types are erased.
 import type { VerificationResult } from "@/utils/raceExport";
@@ -15,6 +15,8 @@ import type { ImportResult } from "@/utils/raceImport";
 import { riderInCategory, catWaveKey } from "../schedule/Schedule";
 import ExportCategoriesModal from "./ExportCategoriesModal";
 import MergeImportModal, { ImportMode } from "./MergeImportModal";
+import AuditLogViewer from "./AuditLogViewer";
+import { AuditLogService } from "@/services/auditLog/auditLogService";
 import { CategoryProps } from "@/types/types";
 import { toast } from "react-toastify";
 
@@ -33,6 +35,7 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
   const [showDeleteRace, setShowDeleteRace] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState<EditForm>({} as EditForm);
+  const [originalForm, setOriginalForm] = useState<EditForm>({} as EditForm);
   const [importing, setImporting] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [pendingImport, setPendingImport] = useState<ImportResult | null>(null);
@@ -40,6 +43,7 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
   const verifyRef = useRef<HTMLInputElement>(null);
   const [verifying, setVerifying] = useState(false);
   const [verification, setVerification] = useState<VerificationResult | null>(null);
+  const [showAuditLog, setShowAuditLog] = useState(false);
   const updateRace = useRaceStore((s) => s.updateRace);
   const currentUser = useAuthStore((s) => s.currentUser);
   const { riders, deleteRidersByRace, insertRiders } = useRiderStore();
@@ -71,8 +75,25 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
       toast.error(
         `Export failed: ${err instanceof Error ? err.message : "Unknown error"}`
       );
+      AuditLogService.log({
+        race,
+        action: "EXPORT_RACE",
+        screen: "Info",
+        entityType: "race",
+        entityId: race.uuid,
+        details: { partial, categoryCount: selected.length },
+        success: false,
+      });
       return;
     }
+    AuditLogService.log({
+      race,
+      action: "EXPORT_RACE",
+      screen: "Info",
+      entityType: "race",
+      entityId: race.uuid,
+      details: { partial, categoryCount: selected.length, riderCount: exportRiders.length },
+    });
     setShowExportModal(false);
   };
 
@@ -141,6 +162,19 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
         toast.success(
           `Imported ${remappedRiders.length} riders across ${remappedCats.length} categories`
         );
+        AuditLogService.log({
+          race,
+          action: "IMPORT_RACE",
+          screen: "Info",
+          entityType: "race",
+          entityId: race.uuid,
+          details: {
+            mode,
+            raceName: pendingImport.raceName,
+            riderCount: remappedRiders.length,
+            categoryCount: remappedCats.length,
+          },
+        });
       } else {
         const selectedKeys = new Set(selected.map((c) => catWaveKey(c.name, c.subCategory)));
         const catsToMerge = remappedCats.filter((c) =>
@@ -176,17 +210,39 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
             result.categories.length === 1 ? "category" : "categories"
           }`
         );
+        AuditLogService.log({
+          race,
+          action: "IMPORT_RACE",
+          screen: "Info",
+          entityType: "race",
+          entityId: race.uuid,
+          details: {
+            mode,
+            raceName: pendingImport.raceName,
+            riderCount: result.riders.length,
+            categoryCount: result.categories.length,
+          },
+        });
       }
       setPendingImport(null);
     } catch (err) {
       toast.error(`Import failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+      AuditLogService.log({
+        race,
+        action: "IMPORT_RACE",
+        screen: "Info",
+        entityType: "race",
+        entityId: race.uuid,
+        details: { mode, raceName: pendingImport?.raceName },
+        success: false,
+      });
     } finally {
       setImporting(false);
     }
   };
 
   const openEdit = () => {
-    setForm({
+    const snapshot: EditForm = {
       name: race.name ?? "",
       date: race.date ?? "",
       time: race.time ?? "",
@@ -199,12 +255,23 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
       phone: race.phone ?? "",
       site: race.site ?? "",
       takanon: race.takanon ?? "",
-    });
+    };
+    setForm(snapshot);
+    setOriginalForm(snapshot);
     setEditMode(true);
   };
 
   const handleSave = async () => {
     await updateRace({ ...race, ...form });
+    AuditLogService.log({
+      race,
+      action: "EDIT_RACE",
+      screen: "Info",
+      entityType: "race",
+      entityId: race.uuid,
+      before: originalForm,
+      after: form,
+    });
     setEditMode(false);
   };
 
@@ -397,6 +464,23 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
         />
       </div>
 
+      {/* ── Audit Log ── */}
+      <div className={styles.dataSection}>
+        <div className={styles.dataSectionTitle}>Audit</div>
+        <div className={styles.dataBody}>
+          <div className={styles.dataText}>
+            A local, read-only record of who did what on this race — race edits,
+            imports/exports, and more.
+          </div>
+          <div className={styles.dataButtons}>
+            <button className={styles.importBtn} onClick={() => setShowAuditLog(true)}>
+              <ScrollText size={14} />
+              View Log
+            </button>
+          </div>
+        </div>
+      </div>
+
       {onDeleteRace && (
         race.viewOnly ? (
           /* Downloaded, view-only race: light one-tap remove — it's a disposable
@@ -408,7 +492,18 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
             </div>
             <button
               className={styles.removeDownloadBtn}
-              onClick={async () => { await onDeleteRace(); }}
+              onClick={async () => {
+                AuditLogService.log({
+                  race,
+                  action: "DELETE_RACE",
+                  screen: "Info",
+                  entityType: "race",
+                  entityId: race.uuid,
+                  before: { id: race.uuid, name: race.name, raceId: race.raceId },
+                  details: { viewOnly: true },
+                });
+                await onDeleteRace();
+              }}
             >
               🗑 Remove downloaded race
             </button>
@@ -453,9 +548,24 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
         <DeleteConfirmModal
           title={`Delete "${race.name}"`}
           description="This will permanently delete the race and all associated riders, categories, and data. This cannot be undone."
-          onConfirm={async () => { await onDeleteRace(); setShowDeleteRace(false); }}
+          onConfirm={async () => {
+            AuditLogService.log({
+              race,
+              action: "DELETE_RACE",
+              screen: "Info",
+              entityType: "race",
+              entityId: race.uuid,
+              before: { id: race.uuid, name: race.name, raceId: race.raceId },
+            });
+            await onDeleteRace();
+            setShowDeleteRace(false);
+          }}
           onCancel={() => setShowDeleteRace(false)}
         />
+      )}
+
+      {showAuditLog && (
+        <AuditLogViewer race={race} onClose={() => setShowAuditLog(false)} />
       )}
     </div>
   );

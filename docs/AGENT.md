@@ -7,9 +7,10 @@ Purpose
 Read Order
 
 1. ../AGENT.md
-2. app-review.md (known bugs)
+2. ../BUGS.md (known bugs — app-review.md was retired, its content lives there now)
 3. roadmap.md (planned phases)
-4. Feature doc matching your task (csv-import.md, local-ocr.md, race-data.md, etc.)
+4. app-rules.md (formal RULE-XXX-NN business-rule catalog, traced to file:line)
+5. Feature doc matching your task (csv-import.md, local-ocr.md, race-data.md, etc.)
 
 What Lives Here
 
