@@ -149,6 +149,15 @@
   white-space: nowrap;
 }
 
+.rowData {
+  color: #999;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
 .rowFail {
   color: #c62828;
   font-weight: 700;

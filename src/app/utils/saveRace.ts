@@ -7,6 +7,7 @@ import Images from "@/constants/Images";
 import { generateRaceId } from "@/services/RaceSync";
 import useRiderStore from "@/stores/ridersStore";
 import { logAnalyticsEvent } from "@/services/analytics/analyticsClient";
+import { AuditLogService } from "@/services/auditLog/auditLogService";
 
 const DEFAULT_IMAGES = [
   Images.bikeMountainSplash,
@@ -117,6 +118,14 @@ export const saveRace = async (
     logAnalyticsEvent("race_created", {
       race_id: newRace.raceId,
       rider_count: useRiderStore.getState().riders.length,
+    });
+    AuditLogService.log({
+      race: newRace,
+      action: "CREATE_RACE",
+      screen: "AddRace",
+      entityType: "race",
+      entityId: newRace.uuid,
+      details: { name: newRace.name, date: newRace.date, riderCount: useRiderStore.getState().riders.length },
     });
 
     setAddNewwRace(false);

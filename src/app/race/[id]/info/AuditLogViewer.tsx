@@ -138,6 +138,7 @@ const AuditLogViewer: React.FC<Props> = ({ race, onClose }) => {
                   {entry.entityType}
                   {entry.entityId ? ` #${entry.entityId}` : ""}
                 </span>
+                {entry.data && <span className={styles.rowData}>{entry.data}</span>}
                 {!entry.success && <span className={styles.rowFail}>FAILED</span>}
               </button>
             ))

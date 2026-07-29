@@ -6,6 +6,8 @@ import calculatePositions from "@/utils/calculatePosition";
 import { recordRaceEvent } from "@/services/cloud/raceEvents";
 import { canForRace } from "@/services/cloud/permissions";
 import { logAnalyticsEvent } from "@/services/analytics/analyticsClient";
+import useRaceStore from "@/stores/racesStore";
+import { AuditLogService } from "@/services/auditLog/auditLogService";
 import { maxBoardHoldMs, normalizeBoardHoldMs } from "@/stores/boardHoldStore";
 
 /**
@@ -94,6 +96,7 @@ export function useLapRecording({
   onLapRecorded,
 }: Params) {
   const holdMs = normalizeBoardHoldMs(boardHoldMs);
+  const race = useRaceStore((s) => s.races.find((r) => r.uuid === raceUuid));
   // Hydrate synchronously from storage so the log is complete on first paint
   // after a reload (BUGS.md #2) instead of flashing empty then filling in.
   const [riderActions, setRiderActions] = useState<RiderAction[]>(() =>
@@ -275,6 +278,16 @@ export function useLapRecording({
     updateRider(updatedRider);
     updateAllRiders(finalSorted);
     logAnalyticsEvent("lap_recorded", { source, race_uuid: raceUuid });
+    if (race) {
+      AuditLogService.log({
+        race,
+        action: "RECORD_LAP",
+        screen: "Heat",
+        entityType: "rider",
+        entityId: rider.bibNumber,
+        details: { lap: lapsCounter, lapTime, source, finished: isFinished },
+      });
+    }
 
     void recordRaceEvent({
       raceUuid,
@@ -357,6 +370,17 @@ export function useLapRecording({
     }
     if (snapshot) setRiderActions((prev) => prev.filter((a) => a.id !== snapshot.id));
 
+    if (race) {
+      AuditLogService.log({
+        race,
+        action: "REVERT_LAP",
+        screen: "Heat",
+        entityType: "rider",
+        entityId: rider.bibNumber,
+        details: { lap: rider.lapsCounter },
+      });
+    }
+
     void recordRaceEvent({
       raceUuid,
       riderId: rider.id,
@@ -429,11 +453,33 @@ export function useLapRecording({
     }
 
     setRiderActions((prev) => prev.filter((a) => a.id !== actionId));
+
+    if (race) {
+      AuditLogService.log({
+        race,
+        action: "CANCEL_ACTION",
+        screen: "Heat",
+        entityType: "rider",
+        entityId: rider.bibNumber,
+        details: { statusChange: action.statusChange ?? "lap" },
+      });
+    }
+
     return rider;
   };
 
   /** Log a DNF/DSQ/DNS so it shows in the action log alongside laps. */
   const logStatusChange = (rider: RiderProps, status: "DNF" | "DSQ" | "DNS"): void => {
+    if (race) {
+      AuditLogService.log({
+        race,
+        action: "STATUS_CHANGE",
+        screen: "Heat",
+        entityType: "rider",
+        entityId: rider.bibNumber,
+        after: { status },
+      });
+    }
     setRiderActions((prev) => [
       {
         id: `${rider.id}-status-${status}-${Date.now()}`,

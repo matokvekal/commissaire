@@ -6,9 +6,11 @@ import { CategoryProps, CategoryTemplate, RiderProps } from "@/types/types";
 import { COLORS } from "@/constants/index";
 import useCategoryStore from "@/stores/categoryStore";
 import useRiderStore from "@/stores/ridersStore";
+import useRaceStore from "@/stores/racesStore";
 import { buildSchedule, DEFAULT_WAVE_GAP_MINUTES, catWaveKey } from "../schedule/Schedule";
 import { getCategoryStatusInfo } from "@/utils/statusChip";
 import { PREDEFINED_CATEGORY_TEMPLATES } from "@/constants/categoryTemplates";
+import { AuditLogService } from "@/services/auditLog/auditLogService";
 
 interface CategoriesProps {
   raceUuid: string;
@@ -36,6 +38,7 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
 
   const { categories, updateCategory, getCategories } = useCategoryStore();
   const { riders, updateRider } = useRiderStore();
+  const race = useRaceStore((s) => s.races.find((r) => r.uuid === raceUuid));
 
   const raceCategories = categories.filter((c) => c.raceUuid === raceUuid);
 
@@ -101,6 +104,16 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
       };
       updateCategory(newCat);
     }
+    if (race) {
+      AuditLogService.log({
+        race,
+        action: "ADD_CATEGORY",
+        screen: "Categories",
+        entityType: "category",
+        entityId: template.name,
+        details: { source: "bank" },
+      });
+    }
     setShowAddFromBank(false);
     // Force refresh categories
     getCategories(raceUuid);
@@ -158,6 +171,17 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
     } as CategoryProps;
 
     await updateCategoryAndSyncRiders(updatedCategory);
+    if (race) {
+      AuditLogService.log({
+        race,
+        action: "EDIT_CATEGORY",
+        screen: "Categories",
+        entityType: "category",
+        entityId: category.name,
+        before: { laps: category.laps, color: category.color, heat: category.heat },
+        after: { laps: updatedCategory.laps, color: updatedCategory.color, heat: updatedCategory.heat },
+      });
+    }
 
     cancelEdit();
   };
@@ -201,6 +225,17 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
     } catch (error) {
       console.error("Error deleting category from IDB:", error);
     }
+
+    if (race) {
+      AuditLogService.log({
+        race,
+        action: "DELETE_CATEGORY",
+        screen: "Categories",
+        entityType: "category",
+        entityId: category.name,
+        before: { name: category.name, subCategory: category.subCategory, laps: category.laps },
+      });
+    }
   };
 
   const handleCreateNew = async () => {
@@ -226,6 +261,16 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
     };
 
     await updateCategory(newCat);
+    if (race) {
+      AuditLogService.log({
+        race,
+        action: "ADD_CATEGORY",
+        screen: "Categories",
+        entityType: "category",
+        entityId: newCat.name,
+        details: { source: "new", laps: newCat.laps, heat: newCat.heat },
+      });
+    }
     setShowCreateNew(false);
     setNewCategoryForm({
       name: "",

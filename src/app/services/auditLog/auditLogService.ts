@@ -139,6 +139,9 @@ async function appendLine(race: RaceProps, line: string): Promise<void> {
 }
 
 function log(input: AuditLogInput): void {
+  // This is the commissaire's own audit trail — a downloaded/view-only race
+  // is someone else's race being viewed here, not one to keep a local log for.
+  if (input.race.viewOnly) return;
   const entry = buildEntry(input);
   const line = JSON.stringify(entry) + "\n";
   const key = input.race.uuid;

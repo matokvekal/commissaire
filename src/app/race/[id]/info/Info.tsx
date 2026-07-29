@@ -464,22 +464,24 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
         />
       </div>
 
-      {/* ── Audit Log ── */}
-      <div className={styles.dataSection}>
-        <div className={styles.dataSectionTitle}>Audit</div>
-        <div className={styles.dataBody}>
-          <div className={styles.dataText}>
-            A local, read-only record of who did what on this race — race edits,
-            imports/exports, and more.
-          </div>
-          <div className={styles.dataButtons}>
-            <button className={styles.importBtn} onClick={() => setShowAuditLog(true)}>
-              <ScrollText size={14} />
-              View Log
-            </button>
+      {/* ── Audit Log — only for races run from here, not downloaded view-only copies ── */}
+      {!race.viewOnly && (
+        <div className={styles.dataSection}>
+          <div className={styles.dataSectionTitle}>Audit</div>
+          <div className={styles.dataBody}>
+            <div className={styles.dataText}>
+              A local, read-only record of who did what on this race — race edits,
+              imports/exports, and more.
+            </div>
+            <div className={styles.dataButtons}>
+              <button className={styles.importBtn} onClick={() => setShowAuditLog(true)}>
+                <ScrollText size={14} />
+                View Log
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {onDeleteRace && (
         race.viewOnly ? (

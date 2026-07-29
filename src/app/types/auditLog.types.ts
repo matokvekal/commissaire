@@ -28,6 +28,8 @@ export interface AuditLogEntry {
   before: unknown;
   after: unknown;
   details: Record<string, unknown>;
+  /** Glance-able summary of before/after/details, capped at 200 chars. */
+  data: string;
   success: boolean;
   appVersion: string;
 }
