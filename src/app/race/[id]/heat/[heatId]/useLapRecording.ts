@@ -6,6 +6,7 @@ import calculatePositions from "@/utils/calculatePosition";
 import { recordRaceEvent } from "@/services/cloud/raceEvents";
 import { canForRace } from "@/services/cloud/permissions";
 import { logAnalyticsEvent } from "@/services/analytics/analyticsClient";
+import { maxBoardHoldMs, normalizeBoardHoldMs } from "@/stores/boardHoldStore";
 
 /**
  * The lap-recording core of the live heat screen (BUGS.md #29).
@@ -69,6 +70,12 @@ interface Params {
   getCatColor: (rider: RiderProps) => string;
   displayOrder: number[];
   setDisplayOrder: React.Dispatch<React.SetStateAction<number[]>>;
+  /**
+   * Board hold: ms of no taps before every tapped card drops to the end of the
+   * queue, all at once. See `stores/boardHoldStore.ts` for why this is a
+   * board-wide trailing debounce and not a per-card delay.
+   */
+  boardHoldMs: number;
   onLapRecorded?: (rider: RiderProps, catColor: string, source: "click" | "voice") => void;
 }
 
@@ -83,8 +90,10 @@ export function useLapRecording({
   getCatColor,
   displayOrder,
   setDisplayOrder,
+  boardHoldMs,
   onLapRecorded,
 }: Params) {
+  const holdMs = normalizeBoardHoldMs(boardHoldMs);
   // Hydrate synchronously from storage so the log is complete on first paint
   // after a reload (BUGS.md #2) instead of flashing empty then filling in.
   const [riderActions, setRiderActions] = useState<RiderAction[]>(() =>
@@ -124,9 +133,73 @@ export function useLapRecording({
   }, [riderActions]);
 
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Pending "drop to end of queue" timers, so an undo inside 1s can cancel it. */
-  const reorderTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
   const lastActionRef = useRef<{ riderId: number; timestamp: number } | null>(null);
+
+  // ── Board hold ────────────────────────────────────────────────────────────
+  // Riders that have been tapped but whose cards are still sitting where they
+  // were. Insertion-ordered (Map) so the flush drops them to the bottom in the
+  // order they were actually tapped. Value = "this tap finished them", which
+  // means removed from the queue instead of appended.
+  const pendingMoveRef = useRef<Map<number, boolean>>(new Map());
+  /** Same ids, mirrored into state so the cards can render as "already tapped". */
+  const [pendingMoveIds, setPendingMoveIds] = useState<number[]>([]);
+  /** Restarted by every tap — the actual debounce. */
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Started once with the FIRST pending card and never restarted (safety valve). */
+  const maxHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopHoldTimers = (): void => {
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    if (maxHoldTimerRef.current) clearTimeout(maxHoldTimerRef.current);
+    holdTimerRef.current = null;
+    maxHoldTimerRef.current = null;
+  };
+
+  /** Move every pending card to the end of the queue in one go. */
+  const flushPendingMoves = (): void => {
+    stopHoldTimers();
+    const entries = [...pendingMoveRef.current.entries()];
+    if (entries.length === 0) return;
+    pendingMoveRef.current.clear();
+    setPendingMoveIds([]);
+    setDisplayOrder((prev) => {
+      const moving = new Set(entries.map(([id]) => id));
+      const rest = prev.filter((id) => !moving.has(id));
+      const tail = entries.filter(([, finished]) => !finished).map(([id]) => id);
+      return [...rest, ...tail];
+    });
+  };
+
+  /** Hold this rider's card in place and (re)start the board-wide countdown. */
+  const holdPendingMove = (riderId: number, finished: boolean): void => {
+    const pending = pendingMoveRef.current;
+    const isFirst = pending.size === 0;
+    pending.set(riderId, finished);
+    setPendingMoveIds([...pending.keys()]);
+
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = setTimeout(flushPendingMoves, holdMs);
+
+    if (isFirst) {
+      if (maxHoldTimerRef.current) clearTimeout(maxHoldTimerRef.current);
+      maxHoldTimerRef.current = setTimeout(flushPendingMoves, maxBoardHoldMs(holdMs));
+    }
+  };
+
+  /** Undo path: this tap is being taken back, so it must not move anything. */
+  const dropPendingMove = (riderId: number): void => {
+    const pending = pendingMoveRef.current;
+    if (!pending.delete(riderId)) return;
+    setPendingMoveIds([...pending.keys()]);
+    if (pending.size === 0) stopHoldTimers();
+  };
+
+  /** Wave change: drop the previous wave's pending moves without applying them. */
+  useEffect(() => {
+    stopHoldTimers();
+    pendingMoveRef.current.clear();
+    setPendingMoveIds([]);
+  }, [persistKey]);
 
   /**
    * @param atTime Backdate the lap to an earlier moment — used when resolving a
@@ -227,20 +300,12 @@ export function useLapRecording({
     setFlashingRiderId(rider.id);
     flashTimerRef.current = setTimeout(() => setFlashingRiderId(null), 1200);
 
-    // After the flash, drop this rider to the literal end of the queue (or off it
-    // entirely if they just finished) — "tap it, it goes last" always means last.
-    const pendingReorder = reorderTimersRef.current.get(rider.id);
-    if (pendingReorder) clearTimeout(pendingReorder);
-    reorderTimersRef.current.set(
-      rider.id,
-      setTimeout(() => {
-        reorderTimersRef.current.delete(rider.id);
-        setDisplayOrder((prev) => {
-          const rest = prev.filter((id) => id !== rider.id);
-          return isFinished ? rest : [...rest, rider.id];
-        });
-      }, 1000)
-    );
+    // This rider still goes to the literal end of the queue (or off it entirely
+    // if they just finished) — "tap it, it goes last" always means last. It just
+    // waits for the arrivals to stop first, together with everyone else tapped
+    // in the same burst, so the board doesn't reshuffle under the commissaire's
+    // eyes while they're still reading bibs off a bunch.
+    holdPendingMove(rider.id, isFinished);
 
     const catColor = getCatColor(rider);
     const actionTimestamp = Date.now();
@@ -281,11 +346,7 @@ export function useLapRecording({
     updateRider(revertedRider);
 
     // Stop any pending drop-to-end, and put them back where they were.
-    const pendingReorder = reorderTimersRef.current.get(rider.id);
-    if (pendingReorder) {
-      clearTimeout(pendingReorder);
-      reorderTimersRef.current.delete(rider.id);
-    }
+    dropPendingMove(rider.id);
     if (snapshot?.prevOrderIndex !== undefined) {
       const at = snapshot.prevOrderIndex;
       setDisplayOrder((prev) => {
@@ -340,11 +401,7 @@ export function useLapRecording({
     const rider = riders.find((r) => r.id === Number(riderIdStr));
     if (!rider || rider.lapsCounter <= 0) return null;
 
-    const pendingReorder = reorderTimersRef.current.get(rider.id);
-    if (pendingReorder) {
-      clearTimeout(pendingReorder);
-      reorderTimersRef.current.delete(rider.id);
-    }
+    dropPendingMove(rider.id);
 
     if (action.prevRider) {
       updateRider({ ...action.prevRider });
@@ -396,19 +453,22 @@ export function useLapRecording({
    * MUST be a stable reference: the page wires it as
    * `useEffect(() => clearTimers, [clearTimers])`. If its identity changed each
    * render, that effect's cleanup would fire on EVERY render and kill the
-   * pending "drop to end" timer before its 1s elapsed — so tapped cards never
-   * moved to the end (live regression). It only touches refs, so `[]` is safe.
+   * board-hold timer before it elapsed — so tapped cards never moved to the end
+   * (live regression). It only touches refs, so `[]` is safe.
    */
   const clearTimers = useCallback((): void => {
     if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-    reorderTimersRef.current.forEach((t) => clearTimeout(t));
-    reorderTimersRef.current.clear();
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    if (maxHoldTimerRef.current) clearTimeout(maxHoldTimerRef.current);
+    pendingMoveRef.current.clear();
   }, []);
 
   return {
     riderActions,
     setRiderActions,
     flashingRiderId,
+    /** Tapped, counted, and waiting for the board hold to expire. */
+    pendingMoveIds,
     recordLap,
     revertLap,
     cancelAction,

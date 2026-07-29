@@ -22,4 +22,22 @@ test.describe("Side menu", () => {
     // mailto, pre-filled subject so replies are easy to triage.
     await expect(link).toHaveAttribute("href", new RegExp(`^mailto:${FEEDBACK_EMAIL}\\?subject=`));
   });
+
+  test("board hold defaults to 2s and persists the chosen value", async ({ page }) => {
+    await page.goto("/main");
+    await acceptTerms(page);
+    await page.getByRole("button", { name: "Open menu" }).click();
+
+    const select = page.getByRole("combobox", { name: "Board hold delay" });
+    await expect(select).toHaveValue("2000");
+
+    await select.selectOption("5000");
+    await page.getByRole("button", { name: "Close menu" }).click();
+
+    // Persisted in localStorage (`commissaire.boardHold`), so it survives the
+    // reload a commissaire does mid-event.
+    await page.reload();
+    await page.getByRole("button", { name: "Open menu" }).click();
+    await expect(page.getByRole("combobox", { name: "Board hold delay" })).toHaveValue("5000");
+  });
 });

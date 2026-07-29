@@ -109,12 +109,56 @@
   filter: brightness(1.08) saturate(1.1);
 }
 
-.cta:active {
+.cta:active:not(:disabled) {
   transform: translateY(5px);
   box-shadow:
     inset 0 2px 0 rgba(255, 255, 255, 0.3),
     0 1px 0 #a86a12,
     0 4px 10px rgba(0, 0, 0, 0.45);
+}
+
+.cta:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.7) brightness(0.85);
+  opacity: 0.6;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.2),
+    0 3px 0 #6b4b1f,
+    0 6px 14px rgba(0, 0, 0, 0.35);
+}
+
+/* Terms & Conditions acceptance — gates "Press Start" until ticked. */
+.termsAgree {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  max-width: 30rem;
+  margin: 0 0 1.1rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  color: var(--gx-cream);
+  cursor: pointer;
+}
+
+.termsAgree input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+  accent-color: var(--gx-amber);
+  cursor: pointer;
+}
+
+.termsLink {
+  color: var(--gx-amber);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.termsLink:hover {
+  filter: brightness(1.15);
 }
 
 .ctaHint {

@@ -1,5 +1,6 @@
 import styles from './voiceSettingsModal.module.css';
 import { useVoiceSettingsStore } from '@/stores/voiceSettingsStore';
+import { BOARD_HOLD_OPTIONS, useBoardHold } from '@/stores/boardHoldStore';
 
 interface VoiceSettingsModalProps {
   onClose: () => void;
@@ -25,13 +26,14 @@ function isIosStandalonePwa(): boolean {
 
 export function VoiceSettingsModal({ onClose }: VoiceSettingsModalProps) {
   const { settings, setLanguage, setAutoConfirm } = useVoiceSettingsStore();
+  const { holdMs, setHoldMs } = useBoardHold();
   const iosPwa = isIosStandalonePwa();
 
   return (
     <div className={styles.modalOverlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
-          <h2>Voice Settings</h2>
+          <h2>Live Settings</h2>
           <button className={styles.closeBtn} onClick={onClose}>
             ✕
           </button>
@@ -44,6 +46,31 @@ export function VoiceSettingsModal({ onClose }: VoiceSettingsModalProps) {
               Open this page in <strong>Safari</strong> to use voice.
             </div>
           )}
+
+          {/* Board hold — the one setting a commissaire may need to retune in
+              the middle of a wave, so it sits at the top and is reachable from
+              the live screen without leaving it. */}
+          <div className={styles.section}>
+            <label className={styles.label} htmlFor="board-hold">Board hold</label>
+            <select
+              id="board-hold"
+              className={styles.select}
+              value={holdMs}
+              onChange={(e) => setHoldMs(Number(e.target.value))}
+            >
+              {BOARD_HOLD_OPTIONS.map((ms) => (
+                <option key={ms} value={ms}>
+                  {ms / 1000} seconds{ms === 2000 ? ' (default)' : ''}
+                </option>
+              ))}
+            </select>
+            <p className={styles.hint}>
+              When a bunch arrives together, tapped cards stay exactly where they
+              are — marked with a green ✓ — and only drop to the bottom once{' '}
+              {holdMs / 1000} seconds have passed with no new tap. Longer if the
+              bibs are shouted at you faster than you can read the board.
+            </p>
+          </div>
 
           <div className={styles.section}>
             <label className={styles.label}>Language</label>

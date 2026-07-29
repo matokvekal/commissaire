@@ -203,10 +203,11 @@ test.describe("Full race day", () => {
     let raceUrl = "";
 
     // ── 1. Create the race and upload the start list ────────────────────────
-    await test.step("accept the terms gate", async () => {
+    await test.step("accept the terms", async () => {
       await page.goto("/main");
-      // First load of a fresh profile is gated behind the T&C dialog.
-      await expect(page.getByRole("dialog", { name: /Terms and Conditions/i })).toBeVisible();
+      // Terms are no longer a startup dialog — acceptance is a landing-page
+      // checkbox gating "Press Start", and going straight to /main bypasses it.
+      // Seed the same record the checkbox writes.
       await acceptTerms(page);
     });
 

@@ -10,6 +10,12 @@ interface Props {
   color: string;
   forceBell?: boolean;
   isFlashing?: boolean;
+  /**
+   * Lap recorded, but the board hold is keeping the card in place until the
+   * arrivals stop. Without a marker the commissaire can't tell a tapped card
+   * from an untapped one — the drop to the bottom used to be the confirmation.
+   */
+  isRecorded?: boolean;
   raceEnded?: boolean;
   onClick: () => void;
   onDoubleClick: () => void;
@@ -77,7 +83,7 @@ const PACE_DOT_COUNT = 60;
 const PACE_DOT_CARD_RADIUS = 12;
 const PACE_DOT_INSET = 3;
 
-const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlashing = false, raceEnded = false, onClick, onDoubleClick }) => {
+const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlashing = false, isRecorded = false, raceEnded = false, onClick, onDoubleClick }) => {
   const clickCountRef = useRef<number>(0);
   const clickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { skin } = useSkin();
@@ -187,23 +193,49 @@ const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlash
 
   const glowClass = isFlashing ? styles.flash : "";
 
+  // Podium medal: tint the category-position badge gold / silver / bronze so the
+  // commissaire can pick out the top 3 of EVERY category at a glance across a
+  // wall of cards. Gentle by design — no new element, just the number you
+  // already show, coloured. Gold pops (the real leader); silver/bronze stay calm.
+  const catPos = rider.position_category;
+  const medalClass =
+    catPos === 1 ? styles.posGold :
+    catPos === 2 ? styles.posSilver :
+    catPos === 3 ? styles.posBronze : "";
+
   return (
     <div
       ref={cardRef}
       data-testid={`racing-rider-${rider.bibNumber}`}
       data-laps={`${rider.lapsCounter}/${rider.totalLaps}`}
-      className={`${styles.rider} ${glowClass} ${raceEnded ? styles.onTrack : ""}`}
+      data-recorded={isRecorded ? "true" : undefined}
+      className={`${styles.rider} ${glowClass} ${isRecorded ? styles.recorded : ""} ${raceEnded ? styles.onTrack : ""}`}
       style={{ background: bgStyle, "--glow-color": color } as React.CSSProperties}
       onClick={handleClick}
       onDoubleClick={(e) => { e.preventDefault(); }}
     >
+      {isRecorded && (
+        <div className={styles.recordedTick} title="Lap recorded — card moves down when the arrivals stop">
+          ✓
+        </div>
+      )}
       {paceDotIndex != null && (
         <div className={styles.paceDots} aria-hidden="true">
           {paceOverdue ? (
-            <span
-              className={`${styles.paceDot} ${styles.paceDotOverdue}`}
-              style={{ left: `${paceDotPoints[0].x}px`, top: `${paceDotPoints[0].y}px` }}
-            />
+            // Rider is overdue at the line (a full expected lap has elapsed since
+            // their last crossing). Keep the WHOLE ring solid so the pace trail
+            // doesn't vanish, and gently blink only the top-edge dots — a calm
+            // "still waiting for this rider" cue that doesn't grab attention.
+            paceDotPoints.map((pt, i) => (
+              <span
+                key={i}
+                // Only the FLAT top edge blinks (y ≈ the inset) — the rounded
+                // corners curve down toward y = card radius and are left solid,
+                // so the cue stays minimal (user req).
+                className={`${styles.paceDot} ${pt.y <= PACE_DOT_INSET + 1 ? styles.paceDotWaiting : ""}`}
+                style={{ left: `${pt.x}px`, top: `${pt.y}px` }}
+              />
+            ))
           ) : (
             paceDotPoints.slice(0, paceDotIndex + 1).map((pt, i) => (
               <span
@@ -252,7 +284,7 @@ const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlash
           <span className={styles.lapTimeCell}>{sinceArrive ?? "--:--"}</span>
         </div>
       )}
-      <div className={`${styles.pos} ${typeof rider.position_category === "number" && rider.position_category >= 1 && rider.position_category <= 3 ? styles.posPodium : ""}`}>{rider.position_category ?? "—"}</div>
+      <div className={`${styles.pos} ${medalClass ? styles.posMedal : ""} ${medalClass}`}>{catPos ?? "—"}</div>
     </div>
   );
 };

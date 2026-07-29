@@ -2,7 +2,6 @@ import React, { useEffect, Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import LandingPage from "./app/page";
 import Loader from "./app/components/Loader";
-import TermsGate from "./app/components/legal/TermsGate";
 import { InstallPrompt } from "./app/components/pwa/InstallPrompt";
 import { UpdatePrompt } from "./app/components/pwa/UpdatePrompt";
 import { isCloudConfigured } from "./app/services/cloud/cloudConfig";
@@ -72,7 +71,6 @@ export default function App() {
       </Suspense>
       <InstallPrompt />
       <UpdatePrompt />
-      <TermsGate />
     </>
   );
 }

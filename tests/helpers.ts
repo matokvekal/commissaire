@@ -1,4 +1,5 @@
 import { expect, Page, Locator } from "@playwright/test";
+import { TERMS_VERSION } from "../src/app/legal/terms";
 
 /** Number of riders the demo race seeds (40 across 8 categories / 2 waves). */
 export const DEMO_RIDER_COUNT = 40;
@@ -9,16 +10,19 @@ export const DEMO_RIDER_COUNT = 40;
  * and the seed navigates to /race/demo-race-99001.
  */
 /**
- * Dismiss the Terms & Conditions gate. Every test runs in a fresh profile, so
- * the gate is up on first load and blocks every other control on the page.
- * No-op once accepted.
+ * Accept the Terms & Conditions. The app no longer blocks at startup — instead
+ * acceptance is a checkbox on the landing page that gates its "Press Start" CTA.
+ * Every test runs a fresh profile, so we seed the same persisted acceptance
+ * record the checkbox would write (harmless for tests that jump straight to
+ * /main and bypass the landing CTA).
  */
 export async function acceptTerms(page: Page): Promise<void> {
-  const gate = page.getByRole("dialog", { name: /Terms and Conditions/i });
-  if ((await gate.count()) === 0) return;
-  await gate.getByRole("checkbox").check();
-  await gate.getByRole("button", { name: /Agree & Continue/ }).click();
-  await expect(gate).toHaveCount(0);
+  await page.evaluate((version) => {
+    localStorage.setItem(
+      "termsAcceptance",
+      JSON.stringify({ version, acceptedAt: new Date().toISOString() })
+    );
+  }, TERMS_VERSION);
 }
 
 export async function loadDemoRace(page: Page): Promise<void> {

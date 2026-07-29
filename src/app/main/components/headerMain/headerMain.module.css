@@ -65,7 +65,8 @@
   color: var(--text-muted);
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.34em; /* tracked out to match the main word's width */
+  letter-spacing: 0.02em; /* long slogan — keep it tight so it fits on a phone */
+  text-transform: none;   /* lowercase tagline, matches the drawer slogan */
 }
 
 /* ═══ PRO skin: golden-pair lockup — 21px / 13px = φ, arcade italic + gold sub ═══ */
@@ -78,10 +79,10 @@
 }
 
 :root[data-skin="gaming"] .headSub {
-  font-size: var(--fs-sm); /* 13px — golden pair with 21px */
+  font-size: 10px; /* long slogan — smaller than the 13px it was for "BIKE RACE" */
   font-style: italic;
   font-weight: 800;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.02em;
   color: #c9930f;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
 }
@@ -168,10 +169,13 @@
 .drawerScroll {
   flex: 1;
   min-height: 0;
+  /* Plain BLOCK scroller — not a flex column. A nested flex column that is also
+     the overflow container compresses its children to fit on iOS Safari/Chrome
+     instead of overflowing, so it never scrolls and the bottom (feedback +
+     version) is unreachable. Block flow + overflow-y scrolls reliably. */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  display: flex;
-  flex-direction: column;
+  overscroll-behavior: contain;
 }
 
 .drawerHeader {
@@ -182,6 +186,12 @@
   border-bottom: 1px solid var(--drawer-border);
 }
 
+.drawerTitleContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .drawerTitle {
   font-size: 16px;
   font-weight: 900;
@@ -189,6 +199,14 @@
   color: #4f90ea;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.drawerSlogan {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
 }
 
 .closeBtn {
@@ -252,7 +270,6 @@
   display: flex;
   flex-direction: column;
   padding: 13px 0;
-  flex: 1;
 }
 
 .navItem {
@@ -454,6 +471,18 @@
   font-size: 12px;
   line-height: 1.45;
   color: var(--text-muted);
+}
+
+.boardHoldSelect {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text, #14243c);
+  background: var(--bg-surface, #f5f8fc);
+  border: 1px solid var(--border-card, #d6dfeb);
+  border-radius: 8px;
+  cursor: pointer;
 }
 
 .themeOptions {

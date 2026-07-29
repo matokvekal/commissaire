@@ -84,6 +84,26 @@ function resolvePerformedBy(race: RaceProps): AuditPerformedBy {
   return { userId: null, userName: "UNKNOWN", userRole: null, deviceUserId: null };
 }
 
+const MAX_DATA_CHARS = 200;
+
+function truncate(value: string, max = MAX_DATA_CHARS): string {
+  return value.length > max ? value.slice(0, max - 1) + "…" : value;
+}
+
+/** Single glance-able summary of before/after/details, capped so the log stays a quick read. */
+function summarizeData(input: AuditLogInput): string {
+  const payload: Record<string, unknown> = {};
+  if (input.before !== undefined) payload.before = input.before;
+  if (input.after !== undefined) payload.after = input.after;
+  if (input.details && Object.keys(input.details).length > 0) payload.details = input.details;
+  if (Object.keys(payload).length === 0) return "";
+  try {
+    return truncate(JSON.stringify(payload));
+  } catch {
+    return "";
+  }
+}
+
 function buildEntry(input: AuditLogInput): AuditLogEntry {
   const { race } = input;
   return {
@@ -103,6 +123,7 @@ function buildEntry(input: AuditLogInput): AuditLogEntry {
     before: input.before ?? null,
     after: input.after ?? null,
     details: input.details ?? {},
+    data: summarizeData(input),
     success: input.success ?? true,
     appVersion: import.meta.env.VITE_APP_VERSION || versionInfo.version || "dev",
   };

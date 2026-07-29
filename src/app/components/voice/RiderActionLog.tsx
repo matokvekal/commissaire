@@ -135,6 +135,9 @@ export function RiderActionLog({ actions, isOpen, onToggle, onCancel }: RiderAct
       <button
         className={`${styles.toggleBtn} ${isOpen ? styles.open : ''}`}
         onClick={onToggle}
+        // Without this the ⏱️ glyph IS the accessible name — `title` is only a
+        // fallback, so the button announced as "⏱️" and was unaddressable.
+        aria-label="View rider action history"
         title="View rider action history"
       >
         <span className={styles.icon}>⏱️</span>
@@ -168,7 +171,7 @@ export function RiderActionLog({ actions, isOpen, onToggle, onCancel }: RiderAct
               >
                 <Search size={16} />
               </button>
-              <button className={styles.closeBtn} onClick={onToggle}>✕</button>
+              <button className={styles.closeBtn} onClick={onToggle} aria-label="Close rider log">✕</button>
             </div>
 
             {searchOpen && (
