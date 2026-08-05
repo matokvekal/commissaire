@@ -87,7 +87,103 @@
 }
 
 .searchWrapperRight {
+  display: flex;
+  justify-content: flex-start;
+  padding-left: 14px;
   min-width: 0;
+}
+
+/* Wave-switch dropdown, mirrored on the right of the search box (Joker sits
+   left). Lets the commissaire jump to another wave without leaving Live. A
+   quiet "Wave" label + status dot + chevron inside a thin-bordered pill, so
+   it reads as its own dropdown control (not a second bold action button)
+   while still being clearly tappable next to the bib-search "plate". */
+.waveSwitcher {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  max-width: 168px;
+  padding: 0 26px 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-card, rgba(20, 40, 80, 0.18));
+  background: var(--bg-card, #fff);
+  box-shadow: 0 1px 3px rgba(20, 40, 80, 0.08);
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  overflow: hidden;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.waveSwitcher:hover,
+.waveSwitcher:focus-within {
+  border-color: #63a6fc;
+  color: var(--text-primary, #16305e);
+}
+
+.waveSwitcherLabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: inherit;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.waveSwitcherDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #9aa5b8;
+}
+
+.waveSwitcherDotRunning {
+  background: #3edda4;
+  box-shadow: 0 0 0 3px rgba(62, 221, 164, 0.2);
+}
+
+.waveSwitcherDotFinished {
+  background: #9aa5b8;
+}
+
+/* The one visible piece of text for the current wave — e.g. "3". The native
+   <select> underneath is fully transparent (see below) so its own rendered
+   value never shows through and doubles up with this. */
+.waveSwitcherValue {
+  font-size: 12px;
+  font-weight: 700;
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Invisible click/tap target covering the whole pill — opens the native wave
+   picker on tap, but never paints its own text (that's .waveSwitcherValue's
+   job) so nothing overlaps. */
+.waveSwitcherSelect {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.waveSwitcherSelect:focus {
+  outline: none;
+}
+
+.waveSwitcherChevron {
+  position: absolute;
+  right: 8px;
+  pointer-events: none;
+  color: inherit;
+  opacity: 0.7;
 }
 
 .searchWrapper .inputContainer {
@@ -547,6 +643,20 @@
   /* The colour dots are decorative — drop them before the clock loses digits. */
   .waveInfoBtn .miniDot {
     display: none;
+  }
+  .waveSwitcher {
+    max-width: 72px;
+    height: 30px;
+    padding-left: 8px;
+    padding-right: 22px;
+  }
+  /* "Wave" text label is redundant once the pill is this narrow — the dot +
+     number still say enough. */
+  .waveSwitcherLabel {
+    display: none;
+  }
+  .waveSwitcherValue {
+    font-size: 11px;
   }
 }
 

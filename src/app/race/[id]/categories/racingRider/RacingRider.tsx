@@ -23,14 +23,14 @@ interface Props {
 
 type Pt = { x: number; y: number };
 
-// Walk the perimeter of a rounded rect (w x h, corner radius r), starting at
-// top-center and going clockwise, returning `count` evenly-spaced points.
-// Used to lay the pace dots directly on the card's actual edge. The card's
-// height is only a *minimum* (racingRider.module.css `.rider` uses
-// min-height, not height) and its border-radius differs by skin (16px
-// classic, 12px gaming — dots only ever render in gaming), so the geometry
-// is computed from the card's real measured size, not assumed constants.
-function roundedRectPerimeterPoints(w: number, h: number, r: number, count: number): Pt[] {
+// Geometry of the perimeter of a rounded rect (w x h, corner radius r),
+// starting at top-center ("the start line") and walking clockwise. Used to
+// trace the pace ring directly on the card's actual edge. The card's height
+// is only a *minimum* (racingRider.module.css `.rider` uses min-height, not
+// height) and its border-radius differs by skin (16px classic, 12px gaming —
+// the ring only ever renders in gaming), so the geometry is computed from
+// the card's real measured size, not assumed constants.
+function roundedRectGeometry(w: number, h: number, r: number) {
   const straightX = w / 2 - r;
   const straightY = h - 2 * r;
   const straightBottom = w - 2 * r;
@@ -71,17 +71,34 @@ function roundedRectPerimeterPoints(w: number, h: number, r: number, count: numb
     return { x: r + d, y: 0 };
   };
 
-  const pts: Pt[] = [];
-  for (let i = 0; i < count; i++) pts.push(pointAt((i / count) * total));
-  return pts;
+  return { total, pointAt };
 }
 
-// Dense enough to read as a dotted line, not scattered points — same inset
-// (3px) the old conic-gradient ring used (padding: 3px before masking to a
-// frame). Gaming-skin card radius is 12px, so the inset path radius is 9px.
-const PACE_DOT_COUNT = 60;
-const PACE_DOT_CARD_RADIUS = 12;
-const PACE_DOT_INSET = 3;
+// SVG path for the same rounded-rect perimeter, starting at top-center and
+// going clockwise (sweep-flag 1) — must match roundedRectGeometry's pointAt(0)
+// and direction of travel exactly, since the tip marker's rotation is derived
+// from that geometry and is overlaid on this path.
+function roundedRectPathD(w: number, h: number, r: number): string {
+  return [
+    `M ${w / 2} 0`,
+    `L ${w - r} 0`,
+    `A ${r} ${r} 0 0 1 ${w} ${r}`,
+    `L ${w} ${h - r}`,
+    `A ${r} ${r} 0 0 1 ${w - r} ${h}`,
+    `L ${r} ${h}`,
+    `A ${r} ${r} 0 0 1 0 ${h - r}`,
+    `L 0 ${r}`,
+    `A ${r} ${r} 0 0 1 ${r} 0`,
+    `Z`,
+  ].join(" ");
+}
+
+// No inset — the ring traces the card's actual outer edge (cardSize comes
+// from offsetWidth/offsetHeight, which already includes the border), so it
+// reads as the card's own border lighting up rather than a frame drawn
+// inside it. Gaming-skin card radius is 12px; match it exactly.
+const PACE_RING_CARD_RADIUS = 12;
+const PACE_RING_INSET = 0;
 
 const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlashing = false, isRecorded = false, raceEnded = false, onClick, onDoubleClick }) => {
   const clickCountRef = useRef<number>(0);
@@ -90,8 +107,8 @@ const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlash
   const isPro = skin === "gaming";
 
   // Measure the card's real rendered box (not the min-height default) so the
-  // pace dots trace its actual edge instead of drifting off it when content
-  // pushes the card taller. Only observed in the gaming skin, where the dots
+  // pace ring traces its actual edge instead of drifting off it when content
+  // pushes the card taller. Only observed in the gaming skin, where the ring
   // can render at all.
   const cardRef = useRef<HTMLDivElement>(null);
   const [cardSize, setCardSize] = useState<{ w: number; h: number }>({ w: 76, h: 84 });
@@ -105,14 +122,17 @@ const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlash
     return () => ro.disconnect();
   }, [isPro]);
 
-  const paceDotPoints = useMemo(() => {
-    const w = Math.max(cardSize.w - PACE_DOT_INSET * 2, PACE_DOT_CARD_RADIUS * 2 + 1);
-    const h = Math.max(cardSize.h - PACE_DOT_INSET * 2, PACE_DOT_CARD_RADIUS * 2 + 1);
-    return roundedRectPerimeterPoints(w, h, PACE_DOT_CARD_RADIUS - PACE_DOT_INSET, PACE_DOT_COUNT).map((p) => ({
-      x: p.x + PACE_DOT_INSET,
-      y: p.y + PACE_DOT_INSET,
-    }));
-  }, [cardSize.w, cardSize.h]);
+  const paceRingW = Math.max(cardSize.w - PACE_RING_INSET * 2, PACE_RING_CARD_RADIUS * 2 + 1);
+  const paceRingH = Math.max(cardSize.h - PACE_RING_INSET * 2, PACE_RING_CARD_RADIUS * 2 + 1);
+  const paceRingR = PACE_RING_CARD_RADIUS - PACE_RING_INSET;
+  const paceRingGeometry = useMemo(
+    () => roundedRectGeometry(paceRingW, paceRingH, paceRingR),
+    [paceRingW, paceRingH, paceRingR]
+  );
+  const paceRingPathD = useMemo(
+    () => roundedRectPathD(paceRingW, paceRingH, paceRingR),
+    [paceRingW, paceRingH, paceRingR]
+  );
 
   const lapsRemaining = rider.totalLaps - rider.lapsCounter;
   const showBell = forceBell || (lapsRemaining === 2);
@@ -156,12 +176,29 @@ const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlash
     ? paceSinceArriveMs / lastLapMs
     : null;
   const paceOverdue = paceProgress != null && paceProgress >= 1;
-  // Index of the leading (blinking) dot — dots before it stay solid, marking
-  // elapsed progress; nothing is rendered past it (mirrors the old ring only
-  // painting the elapsed arc, not the full circle).
-  const paceDotIndex = paceProgress != null
-    ? Math.min(Math.floor(Math.min(paceProgress, 1) * PACE_DOT_COUNT), PACE_DOT_COUNT - 1)
-    : null;
+
+  // Length along the ring that's "elapsed" — clamped to a full lap. Overdue
+  // clamps to exactly `total`, which (via pointAt's modulo) lands the tip
+  // marker back at t=0 — the top-center start line — so the same marker that
+  // tracks the rider mid-lap doubles as the "still waiting" cue once they're
+  // late, with no separate position to compute.
+  const { total: paceRingTotal, pointAt: paceRingPointAt } = paceRingGeometry;
+  const paceElapsedLen = paceProgress != null ? Math.min(paceProgress, 1) * paceRingTotal : null;
+
+  // Direction-of-travel marker: a small triangle-in-circle at the tip of the
+  // elapsed line, rotated to point the way the ring is being traced (always
+  // clockwise) so the commissaire can read direction at a glance, not just
+  // position. Angle comes from sampling the path just behind the tip — the
+  // ring is always walked in the +t direction, so (tip - justBehind) is the
+  // local tangent.
+  const paceTip = paceElapsedLen != null ? paceRingPointAt(paceElapsedLen) : null;
+  const paceTipAngleDeg = useMemo(() => {
+    if (paceElapsedLen == null) return 0;
+    const eps = 0.75;
+    const a = paceRingPointAt(paceElapsedLen - eps);
+    const b = paceRingPointAt(paceElapsedLen + eps);
+    return (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+  }, [paceElapsedLen, paceRingPointAt]);
 
   const bgStyle = color;
 
@@ -219,33 +256,42 @@ const RacingRider: React.FC<Props> = ({ rider, color, forceBell = false, isFlash
           ✓
         </div>
       )}
-      {paceDotIndex != null && (
-        <div className={styles.paceDots} aria-hidden="true">
-          {paceOverdue ? (
-            // Rider is overdue at the line (a full expected lap has elapsed since
-            // their last crossing). Keep the WHOLE ring solid so the pace trail
-            // doesn't vanish, and gently blink only the top-edge dots — a calm
-            // "still waiting for this rider" cue that doesn't grab attention.
-            paceDotPoints.map((pt, i) => (
-              <span
-                key={i}
-                // Only the FLAT top edge blinks (y ≈ the inset) — the rounded
-                // corners curve down toward y = card radius and are left solid,
-                // so the cue stays minimal (user req).
-                className={`${styles.paceDot} ${pt.y <= PACE_DOT_INSET + 1 ? styles.paceDotWaiting : ""}`}
-                style={{ left: `${pt.x}px`, top: `${pt.y}px` }}
-              />
-            ))
-          ) : (
-            paceDotPoints.slice(0, paceDotIndex + 1).map((pt, i) => (
-              <span
-                key={i}
-                className={`${styles.paceDot} ${i === paceDotIndex ? styles.paceDotCurrent : ""}`}
-                style={{ left: `${pt.x}px`, top: `${pt.y}px` }}
-              />
-            ))
-          )}
-        </div>
+      {paceElapsedLen != null && (
+        <svg
+          className={styles.paceRing}
+          aria-hidden="true"
+          width={cardSize.w}
+          height={cardSize.h}
+          overflow="visible"
+        >
+          <g transform={`translate(${PACE_RING_INSET},${PACE_RING_INSET})`}>
+            {/*
+              Rider is overdue at the line once a full expected lap has elapsed
+              since their last crossing. Keep the WHOLE ring solid (rather than
+              collapsing to nothing) so the pace trail doesn't vanish — only
+              the tip marker (which lands back at the top-center start line
+              when overdue, see paceElapsedLen) switches to amber and blinks,
+              a calm "still waiting for this rider" cue (user req).
+            */}
+            <path
+              d={paceRingPathD}
+              className={styles.paceRingPath}
+              strokeDasharray={paceOverdue ? undefined : `${paceElapsedLen} ${Math.max(paceRingTotal - paceElapsedLen, 0)}`}
+            />
+            {paceTip && (
+              <g
+                transform={`translate(${paceTip.x},${paceTip.y}) rotate(${paceTipAngleDeg})`}
+                className={paceOverdue ? styles.paceMarkerWaiting : styles.paceMarkerCurrent}
+              >
+                {/* Triangle points along +x by default — matches the ring's
+                    own direction of travel at t=0, so the rotation above is
+                    the only thing that ever needs to point it correctly. */}
+                <circle r="5.5" className={styles.paceMarkerCircle} />
+                <polygon points="-2,-2.6 -2,2.6 2.8,0" className={styles.paceMarkerTriangle} />
+              </g>
+            )}
+          </g>
+        </svg>
       )}
       {raceEnded && (
         <div className={styles.onTrackRibbon} title="Race ended — this rider is still on the track">

@@ -8,8 +8,11 @@
  */
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Sliders, Flag, Radio } from "lucide-react";
 import useUIStore from "@/stores/uiStore";
+import useCategoryStore from "@/stores/categoryStore";
+import { getDefaultLiveWave } from "../../[id]/schedule/Schedule";
 import styles from "./racePhaseSwitcher.module.css";
 
 type Phase = "setup" | "race" | "live";
@@ -17,6 +20,7 @@ type Phase = "setup" | "race" | "live";
 /** `compact` — for tight headers (live heat): drops button labels to icon-only
  *  on narrow screens so the header's clock/settings never overflow off-screen. */
 const RacePhaseSwitcher: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const params = useParams();
   const raceUuid = params?.id as string;
@@ -26,6 +30,7 @@ const RacePhaseSwitcher: React.FC<{ compact?: boolean }> = ({ compact = false })
   const isRaceMode = useUIStore((s) => s.isRaceMode);
   const setRaceMode = useUIStore((s) => s.setRaceMode);
   const selectedWave = useUIStore((s) => s.selectedWave);
+  const categories = useCategoryStore((s) => s.categories);
 
   const phase: Phase = onLiveRoute ? "live" : isRaceMode ? "race" : "setup";
 
@@ -37,8 +42,17 @@ const RacePhaseSwitcher: React.FC<{ compact?: boolean }> = ({ compact = false })
     if (onLiveRoute) navigate(`/race/${raceUuid}`);
     setRaceMode(true);
   };
+  // Opens whichever wave is actually live right now, never the Start folder's
+  // `selectedWave` (that tracks whatever wave the commissaire was last
+  // administering there, which can be stale). Once nothing is running —
+  // race not started, or every wave already finished — falls back to the
+  // first wave. Already on Live: leave it alone, so a manual wave-dropdown
+  // pick on the heat page isn't clobbered by re-clicking the Live tab.
   const goLive = () => {
-    navigate(`/race/${raceUuid}/heat/${selectedWave}`);
+    if (onLiveRoute) return;
+    const raceCats = categories.filter((c) => c.raceUuid === raceUuid);
+    const wave = getDefaultLiveWave(raceCats) ?? selectedWave;
+    navigate(`/race/${raceUuid}/heat/${wave}`);
   };
 
   const items: {
@@ -49,16 +63,16 @@ const RacePhaseSwitcher: React.FC<{ compact?: boolean }> = ({ compact = false })
     activeClass: string;
     idleClass: string;
   }[] = [
-    { key: "setup", label: "Race", icon: <Sliders size={16} />, onClick: goSetup, activeClass: styles.setupActive, idleClass: styles.setupIdle },
-    { key: "race", label: "Start", icon: <Flag size={16} />, onClick: goRace, activeClass: styles.raceActive, idleClass: styles.raceIdle },
-    { key: "live", label: "Live", icon: <Radio size={16} />, onClick: goLive, activeClass: styles.liveActive, idleClass: styles.liveIdle },
+    { key: "setup", label: t("phase.setup", "Race"), icon: <Sliders size={16} />, onClick: goSetup, activeClass: styles.setupActive, idleClass: styles.setupIdle },
+    { key: "race", label: t("phase.race", "Start"), icon: <Flag size={16} />, onClick: goRace, activeClass: styles.raceActive, idleClass: styles.raceIdle },
+    { key: "live", label: t("phase.live", "Live"), icon: <Radio size={16} />, onClick: goLive, activeClass: styles.liveActive, idleClass: styles.liveIdle },
   ];
 
   return (
     <div
       className={`${styles.switcher} ${compact ? styles.compactOnMobile : ""}`}
       role="tablist"
-      aria-label="Race phase"
+      aria-label={t("phase.ariaLabel", "Race phase")}
     >
       {items.map((it) => {
         const active = phase === it.key;

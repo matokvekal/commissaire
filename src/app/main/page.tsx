@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import styles from "./main.module.css";
 import AddRace from "./addRace/AddRace";
 import HeaderMain from "./components/headerMain/HeaderMain";
@@ -24,11 +25,6 @@ import {
 
 type SortKey = "date" | "name" | "status";
 const SORT_CYCLE: SortKey[] = ["date", "name", "status"];
-const SORT_LABEL: Record<SortKey, string> = {
-  date: "Date",
-  name: "Name",
-  status: "Status"
-};
 const STATUS_ORDER: Record<string, number> = {
   running: 0,
   upcoming: 1,
@@ -48,6 +44,7 @@ const parseRaceDate = (d: string | null | undefined): number => {
 const HOME_ROW_LIMIT = 10;
 
 const MainPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [addNewRace, setAddNewRace] = useState(false);
   const [showDownload, setShowDownload] = useState(false);
@@ -100,6 +97,12 @@ const MainPage = () => {
     } finally {
       setLoadingDemo(false);
     }
+  };
+
+  const SORT_LABEL: Record<SortKey, string> = {
+    date: t("main.sortDate", "Date"),
+    name: t("main.sortName", "Name"),
+    status: t("main.sortStatus", "Status")
   };
 
   const isEmpty = loaded && races.length === 0;
@@ -157,7 +160,7 @@ const MainPage = () => {
             <div className={styles.toolbarTop}>
               <button className={styles.backBtn} onClick={() => setShowAll(false)}>
                 <ArrowLeft width={16} height={16} />
-                My Races
+                {t("main.myRaces", "My Races")}
               </button>
               <Button
                 variant="success"
@@ -166,7 +169,7 @@ const MainPage = () => {
                 onClick={() => setAddNewRace(true)}
               >
                 <Plus width={15} height={15} />
-                Add
+                {t("main.add", "Add")}
               </Button>
             </div>
 
@@ -175,7 +178,7 @@ const MainPage = () => {
               <input
                 className={styles.search}
                 dir="auto"
-                placeholder="Search by name, date or location..."
+                placeholder={t("main.searchPlaceholder", "Search by name, date or location...")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -192,7 +195,7 @@ const MainPage = () => {
                       SORT_CYCLE[(SORT_CYCLE.indexOf(sortBy) + 1) % SORT_CYCLE.length]
                     )
                   }
-                  title="Sort by date / name / status"
+                  title={t("main.sortTooltip", "Sort by date / name / status")}
                 >
                   <ArrowUpDown className={styles.iconGlyph} aria-hidden="true" />
                   <span>{SORT_LABEL[sortBy]}</span>
@@ -203,7 +206,7 @@ const MainPage = () => {
                   iconOnly
                   className={`${styles.iconBtn} ${showFavoritesOnly ? styles.heartActive : ""}`}
                   onClick={() => setShowFavoritesOnly((v) => !v)}
-                  aria-label="Show favorites"
+                  aria-label={t("main.showFavorites", "Show favorites")}
                 >
                   <Heart
                     className={styles.heartIcon}
@@ -219,7 +222,7 @@ const MainPage = () => {
                 onClick={() => setShowDownload(true)}
               >
                 <Download className={styles.iconGlyph} aria-hidden="true" />
-                Download
+                {t("main.download", "Download")}
               </Button>
             </div>
           </div>
@@ -227,7 +230,7 @@ const MainPage = () => {
           <div className={styles.list}>
             {allFiltered.length === 0 && (
               <div className={styles.noResults} dir="auto">
-                No races match &ldquo;{search}&rdquo;
+                {t("main.noResults", 'No races match "{{search}}"', { search })}
               </div>
             )}
             {allFiltered.map((race) => (
@@ -259,16 +262,16 @@ const MainPage = () => {
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <div className={styles.sectionLeft}>
-                <span className={styles.sectionTitle}>My Races</span>
+                <span className={styles.sectionTitle}>{t("main.myRaces", "My Races")}</span>
                 <span className={styles.sectionCount}>{races.length}</span>
               </div>
               <div className={styles.sectionActions}>
                 <button className={styles.seeAllBtn} onClick={() => setShowAll(true)}>
-                  See All
+                  {t("main.seeAll", "See All")}
                 </button>
                 <button className={styles.addTileBtn} onClick={() => setAddNewRace(true)}>
                   <Plus width={13} height={13} />
-                  Add
+                  {t("main.add", "Add")}
                 </button>
               </div>
             </div>
@@ -301,15 +304,15 @@ const MainPage = () => {
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <div className={styles.sectionLeft}>
-                <span className={styles.sectionTitle}>Other Bike Races</span>
+                <span className={styles.sectionTitle}>{t("main.otherBikeRaces", "Other Bike Races")}</span>
               </div>
             </div>
 
             <div className={styles.discoverCard} onClick={() => setShowDownload(true)}>
               <Download width={22} height={22} className={styles.discoverIcon} />
               <div className={styles.discoverText}>
-                <div className={styles.discoverTitle}>Download a Race</div>
-                <div className={styles.discoverSub}>Get race data from the server</div>
+                <div className={styles.discoverTitle}>{t("main.downloadRace", "Download a Race")}</div>
+                <div className={styles.discoverSub}>{t("main.downloadRaceSub", "Get race data from the server")}</div>
               </div>
             </div>
           </div>

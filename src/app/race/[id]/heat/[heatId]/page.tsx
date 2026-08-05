@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import styles from "./heat.module.css";
 import { toast } from "react-toastify";
 import HeaderHeats from "../../../components/headerHeat/HeaderHeat";
@@ -14,7 +15,7 @@ import { RiderProps } from "@/types/types";
 import { formatTime, formatTimeWithLeadingZeroes, parseClockTime } from "../../../../utils/timeUtils";
 import { useLapRecording } from "./useLapRecording";
 import calculatePositions from "../../../../utils/calculatePosition";
-import { buildSchedule, DEFAULT_WAVE_GAP_MINUTES, riderInCategory, withCategoryLaps } from "../../schedule/Schedule";
+import { buildSchedule, DEFAULT_WAVE_GAP_MINUTES, riderInCategory, withCategoryLaps, getScheduleWaves } from "../../schedule/Schedule";
 import RiderLiveModal from "./RiderLiveModal";
 import { VoiceIndicator } from "@/components/voice/VoiceIndicator";
 import { useVoiceRecognition } from "@/components/voice/useVoiceRecognition";
@@ -32,7 +33,7 @@ import { useBoardHold } from "@/stores/boardHoldStore";
 import { useJokerQueue, type JokerEntry } from "./useJokerQueue";
 import JokerCard from "./jokerCard/JokerCard";
 import JokerResolveModal from "./JokerResolveModal";
-import { Bike, List } from "lucide-react";
+import { Bike, List, ChevronDown } from "lucide-react";
 
 // Category identity is name + subCategory: the same name can exist in several
 // waves with different subcategories (e.g. Master Men 19-29 vs 30-49).
@@ -41,7 +42,9 @@ const riderCatKey = (r: { category: string; subCategory?: string | null }) =>
   catKey(r.category, r.subCategory);
 
 const Heat: React.FC = () => {
+  const { t } = useTranslation();
   const params = useParams();
+  const navigate = useNavigate();
   const raceUuid = params?.id as string;
   const heatId = params?.heatId ? parseInt(params.heatId as string, 10) : null;
 
@@ -111,6 +114,19 @@ const Heat: React.FC = () => {
     }
     return categories;
   }, [categories, heatId]);
+
+  // Every wave in this race's schedule, for the wave-switch dropdown next to
+  // the bib search — lets the commissaire jump to another wave without going
+  // back through Setup/Race (user request).
+  const scheduleWaves = useMemo(() => getScheduleWaves(categories), [categories]);
+  const currentWave = useMemo(
+    () => scheduleWaves.find((w) => w.waveNum === heatId),
+    [scheduleWaves, heatId]
+  );
+  const handleWaveChange = (nextHeatId: number) => {
+    if (nextHeatId === heatId) return;
+    navigate(`/race/${raceUuid}/heat/${nextHeatId}`);
+  };
 
   // Category filter list order: RUNNING first (the ones you're actively scoring),
   // then finished, then not-started LAST. Not-started categories have no cards on
@@ -830,7 +846,39 @@ const Heat: React.FC = () => {
                 <img src={Icons.search} alt="search" width={16} height={16} className={styles.inputIcon} />
               )}
             </div>
-            <div className={styles.searchWrapperRight} />
+            <div className={styles.searchWrapperRight}>
+              {scheduleWaves.length > 1 && (
+                <label className={styles.waveSwitcher} title="Switch wave">
+                  <span className={styles.waveSwitcherLabel}>Wave</span>
+                  <span
+                    className={[
+                      styles.waveSwitcherDot,
+                      currentWave?.status === "running" ? styles.waveSwitcherDotRunning : "",
+                      currentWave?.status === "finished" ? styles.waveSwitcherDotFinished : "",
+                    ].join(" ")}
+                    aria-hidden="true"
+                  />
+                  <span className={styles.waveSwitcherValue}>
+                    {currentWave ? currentWave.waveNum : heatId}
+                  </span>
+                  <select
+                    className={styles.waveSwitcherSelect}
+                    value={heatId ?? ""}
+                    onChange={(e) => handleWaveChange(Number(e.target.value))}
+                    aria-label="Switch wave"
+                  >
+                    {scheduleWaves.map((w) => (
+                      <option key={w.waveNum} value={w.waveNum}>
+                        Wave {w.waveNum}
+                        {w.startTime ? ` · ${w.startTime}` : ""}
+                        {w.status === "finished" ? " (done)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className={styles.waveSwitcherChevron} aria-hidden="true" />
+                </label>
+              )}
+            </div>
           </div>
         </div>
 
@@ -839,7 +887,7 @@ const Heat: React.FC = () => {
           <div className={styles.filterPanelOverlay} onClick={() => setShowFilterPanel(false)}>
             <div className={styles.filterPanel} onClick={(e) => e.stopPropagation()}>
               <div className={styles.filterPanelHeader}>
-                <span>Filter Categories</span>
+                <span>{t("heat.filterCategories", "Filter Categories")}</span>
                 <button className={styles.contextClose} onClick={() => setShowFilterPanel(false)}>✕</button>
               </div>
               <label className={styles.filterPanelRow}>
@@ -848,7 +896,7 @@ const Heat: React.FC = () => {
                   checked={filterCats.size === 0}
                   onChange={() => setFilterCats(new Set())}
                 />
-                <span>All categories</span>
+                <span>{t("heat.allCategories", "All categories")}</span>
               </label>
               <div className={styles.filterDivider} />
               {filterCategories.map((cat) => {
@@ -869,8 +917,8 @@ const Heat: React.FC = () => {
                     />
                     <span className={styles.catDot} style={{ background: cat.color ?? "#ccc" }} />
                     <span>{cat.name}{cat.subCategory ? ` · ${cat.subCategory}` : ""}</span>
-                    {notStarted && <span className={styles.filterStatusTag}>not started</span>}
-                    {finished && <span className={styles.filterStatusTagDone}>finished</span>}
+                    {notStarted && <span className={styles.filterStatusTag}>{t("heat.notStarted", "not started")}</span>}
+                    {finished && <span className={styles.filterStatusTagDone}>{t("heat.finished", "finished")}</span>}
                     {cat.laps && <span className={styles.filterLapTag}>{cat.laps}L</span>}
                   </label>
                 );
@@ -915,9 +963,11 @@ const Heat: React.FC = () => {
             <button
               className={`${styles.filterIconBtn} ${filterCats.size > 0 ? styles.filterIconActive : ""}`}
               onClick={() => setShowFilterPanel(true)}
-              title="Filter categories"
+              title={t("heat.filterCategoriesTitle", "Filter categories")}
             >
-              {filterCats.size > 0 ? `Filter (${filterCats.size})` : "Filter"}
+              {filterCats.size > 0
+                ? t("heat.filterCount", "Filter ({{count}})", { count: filterCats.size })
+                : t("heat.filter", "Filter")}
             </button>
           </div>
 

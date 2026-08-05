@@ -179,6 +179,49 @@ export function buildSchedule(
   return waveMap;
 }
 
+export interface WaveStatusEntry {
+  waveNum: number;
+  status: "upcoming" | "running" | "finished" | "partial";
+  startTime: string | null;
+}
+
+/** Every wave number in schedule order, each tagged with its aggregate status
+ *  (same rule as getWaveStatusInfo) and first start time — for wave pickers. */
+export function getScheduleWaves(
+  categories: CategoryProps[],
+  waveGapMinutes = DEFAULT_WAVE_GAP_MINUTES
+): WaveStatusEntry[] {
+  const schedule = buildSchedule(categories, waveGapMinutes);
+  return [...schedule.keys()]
+    .sort((a, b) => a - b)
+    .map((waveNum) => {
+      const startMap = schedule.get(waveNum)!;
+      const cats = [...startMap.values()].flat();
+      const firstTime = [...startMap.keys()][0] ?? null;
+      let status: WaveStatusEntry["status"] = "upcoming";
+      if (cats.length && cats.every((c) => c.status === "finished")) status = "finished";
+      else if (cats.some((c) => c.status === "running")) status = "running";
+      else if (cats.some((c) => c.status === "finished")) status = "partial";
+      return { waveNum, status, startTime: firstTime === "TBD" ? null : firstTime };
+    });
+}
+
+/**
+ * Which wave the Live phase should open by default: the wave that's actually
+ * running right now, or — once nothing is live (race not started yet, or
+ * every wave already finished) — the first wave in the schedule. Never the
+ * Start folder's `selectedWave`, which tracks whatever wave the commissaire
+ * was last administering there and can be well behind (or ahead of) reality.
+ */
+export function getDefaultLiveWave(
+  categories: CategoryProps[],
+  waveGapMinutes = DEFAULT_WAVE_GAP_MINUTES
+): number | null {
+  const waves = getScheduleWaves(categories, waveGapMinutes);
+  if (waves.length === 0) return null;
+  return waves.find((w) => w.status === "running")?.waveNum ?? waves[0].waveNum;
+}
+
 const OUT_STATUSES = new Set(["DNS", "DSQ", "DNF"]);
 
 // A wave is "locked" once it has started or finished — its start time can no

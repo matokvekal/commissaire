@@ -277,42 +277,57 @@
   border-left-color: rgba(255, 214, 232, 0.45);
 }
 
-/* ═══ PRO-only pace dots ═══
+/* ═══ PRO-only pace ring ═══
    Fraction of the rider's own last-lap time elapsed since their last arrival,
-   walked clockwise around the card's actual measured edge starting top-center
-   as a trail of dots (RacingRider.tsx measures the card via ResizeObserver —
-   its height is only a min-height, so it can render taller than the CSS
-   default). Sampled on its own 10s tick, independent of the 1s "since
-   arrival" tick used for the text row. Only the elapsed portion is drawn —
-   nothing paints ahead of "now". 60 dots keeps them close enough together to
-   read as a dotted line rather than scattered points. */
-.paceDots {
+   traced clockwise as a solid line around the card's actual measured edge
+   starting at top-center — "the start line" (RacingRider.tsx measures the
+   card via ResizeObserver — its height is only a min-height, so it can
+   render taller than the CSS default). Sampled on its own 10s tick,
+   independent of the 1s "since arrival" tick used for the text row. Only the
+   elapsed portion is drawn — nothing paints ahead of "now". A small
+   triangle-in-circle marker rides the tip, rotated to the ring's own
+   direction of travel, so the commissaire reads direction at a glance, not
+   just position (user req). */
+.paceRing {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
   pointer-events: none;
+  overflow: visible;
 }
 
-.paceDot {
-  position: absolute;
-  width: 2.6px;
-  height: 2.6px;
-  border-radius: 50%;
-  background: #34d058;
-  transform: translate(-50%, -50%);
+.paceRingPath {
+  fill: none;
+  stroke: #34d058;
+  stroke-width: 2.4px;
+  stroke-linecap: round;
 }
 
-/* Leading dot: where "now" actually is on the pace trail */
-.paceDotCurrent {
+.paceMarkerCircle {
+  fill: #34d058;
+  stroke: #fff;
+  stroke-width: 1px;
+}
+
+.paceMarkerTriangle {
+  fill: #fff;
+}
+
+/* Tip marker: where "now" actually is on the pace trail */
+.paceMarkerCurrent {
   animation: paceDotBlink 1s ease-in-out infinite;
 }
 
-/* Overdue: the full pace ring stays solid (it no longer collapses). Only the
-   top-edge dots turn amber and blink SLOWLY — a calm, low-attention "still
-   waiting for this rider to cross" cue for the commissaire (user req).
-   Scoped under .paceDots (0,2,0) so the amber always beats .paceDot (0,1,0). */
-.paceDots .paceDotWaiting {
-  background: #f5a623;
+/* Overdue: the ring itself stays fully solid (it never collapses) — only the
+   tip marker, which lands back at the top-center start line once a rider is
+   overdue, turns red and blinks SLOWLY — a calm, low-attention "still
+   waiting for this rider to cross" cue for the commissaire (user req). */
+.paceMarkerWaiting {
   animation: paceDotWaitingBlink 2.2s ease-in-out infinite;
+}
+
+.paceMarkerWaiting .paceMarkerCircle {
+  fill: #e02020;
 }
 
 @keyframes paceDotBlink {

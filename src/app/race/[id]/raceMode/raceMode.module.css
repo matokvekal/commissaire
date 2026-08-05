@@ -9,6 +9,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 0 6px;
+  min-width: 0;
 }
 
 .waveBarLabel {
@@ -18,10 +19,24 @@
   flex-shrink: 0;
 }
 
+/* Single scrollable row, not wrap — with many waves, wrapping used to push
+   the sub-tabs and content down a whole extra row (or two) per wave. Scroll
+   position is set once on load (RaceMode.tsx) to reveal the running/current
+   wave; the user can then swipe/scroll to any other wave and tap to select. */
 .wavePills {
   display: flex;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  min-width: 0;
+  /* Small top/bottom padding so the pills' focus/active box-shadow isn't
+     clipped by the scroll container. */
+  padding: 2px 2px 6px;
+  margin: -2px -2px -6px;
 }
 
 /* ── Wave-pill status system: 3 clearly distinct states ──
@@ -32,6 +47,9 @@
 
 /* Upcoming (not started yet): neutral gray outline chip */
 .wavePill {
+  flex-shrink: 0;
+  scroll-snap-align: center;
+  white-space: nowrap;
   padding: 5px 14px;
   border-radius: 20px;
   border: 1.5px solid var(--border-card);

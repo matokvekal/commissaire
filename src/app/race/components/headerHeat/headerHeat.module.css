@@ -106,10 +106,18 @@
   }
 }
 
-.waveLabel {
-  font-size: 12px;
-  font-weight: 700;
-  color: #bfd1ea;
+/* Wave started but every category in it finished — static, no blink, since
+   nothing is actively live anymore. */
+.racePastLabel {
+  font-size: 11px;
+  font-weight: 800;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  padding: 4px 10px;
   white-space: nowrap;
 }
 
@@ -193,14 +201,11 @@
     gap: 1px;
   }
 
-  .raceLiveLabel {
+  .raceLiveLabel,
+  .racePastLabel {
     font-size: 9px;
     padding: 2px 7px;
     letter-spacing: 0.04em;
-  }
-
-  .waveLabel {
-    font-size: 10px;
   }
 
   .time {
@@ -222,7 +227,7 @@
   }
 }
 
-/* Very narrow phones: drop the race name — RACE LIVE + wave say enough */
+/* Very narrow phones: drop the race name — the RACE LIVE/PAST pill says enough */
 @media (max-width: 400px) {
   .raceName {
     display: none;

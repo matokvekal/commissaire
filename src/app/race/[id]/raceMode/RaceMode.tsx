@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import styles from "./raceMode.module.css";
 import { CategoryProps } from "@/types/types";
 import StartManager from "./StartManager";
 import CheckIn from "./CheckIn";
 import LiveBoard from "./LiveBoard";
 import WaveStatus from "./WaveStatus";
-import { buildSchedule, DEFAULT_WAVE_GAP_MINUTES, riderInCategory } from "../schedule/Schedule";
+import { buildSchedule, DEFAULT_WAVE_GAP_MINUTES, riderInCategory, getDefaultLiveWave } from "../schedule/Schedule";
 import useRiderStore from "@/stores/ridersStore";
 import useUIStore from "@/stores/uiStore";
 import { Flag, Circle } from "lucide-react";
@@ -35,6 +35,23 @@ const RaceMode: React.FC<Props> = ({ raceUuid, categories }) => {
       setSelectedWave(waveNums[0]);
     }
   }, [waveNums, selectedWave, setSelectedWave]);
+
+  // The wave bar is a single scrollable row (BUGS: too many waves used to wrap
+  // into several rows and eat vertical space). On first load, scroll whichever
+  // wave is actually running into view — or, if nothing's running, the same
+  // "first by time" fallback the Live phase uses — so the commissaire doesn't
+  // have to hunt sideways for it. Runs once; afterward the user's own
+  // scrolling/selection is left alone.
+  const pillRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
+  const didAutoScroll = useRef(false);
+  useEffect(() => {
+    if (didAutoScroll.current || waveNums.length === 0) return;
+    const target = getDefaultLiveWave(categories) ?? waveNums[0];
+    const el = pillRefs.current.get(target);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "auto", inline: "center", block: "nearest" });
+    didAutoScroll.current = true;
+  }, [waveNums, categories]);
 
   const waveStatusMap = useMemo(() => {
     const map = new Map<number, "upcoming" | "running" | "finished">();
@@ -81,6 +98,10 @@ const RaceMode: React.FC<Props> = ({ raceUuid, categories }) => {
             return (
               <button
                 key={w}
+                ref={(el) => {
+                  if (el) pillRefs.current.set(w, el);
+                  else pillRefs.current.delete(w);
+                }}
                 className={[
                   styles.wavePill,
                   selectedWave === w ? styles.wavePillActive : "",
