@@ -299,6 +299,15 @@
   transform: translateX(3px);
 }
 
+/* Classic skin only — a flat list of transparent-border rows read as one
+   messy block once there were enough of them (Login, Contact, My Races,
+   template download…). A hairline border per row gives each its own edge.
+   Gaming skin's bold/gold treatment already reads as distinct rows, so it's
+   deliberately excluded here. */
+:root:not([data-skin="gaming"]) .navItem {
+  border: 1px solid var(--drawer-border);
+}
+
 /* Reusable "not live yet" flag for nav items whose backend isn't ready
    (e.g. Register/Login — LOGIN_ENABLED is false until sign-up has a
    backend). Pushed to the row's end via margin-left:auto on the flex row. */
@@ -563,4 +572,55 @@
 
 .themeLabelActive {
   color: var(--brand);
+}
+
+/* Language picker — same swatch/label rhythm as the theme picker, but wraps
+   to a grid instead of one space-between row since there are 8 options, not 3. */
+.languageGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.languageOption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 56px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 2px;
+  border-radius: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.languageOption:active {
+  background: var(--bg-surface);
+}
+
+.languageFlag {
+  width: 38px;
+  height: 27px;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.languageFlag img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.languageFlagActive {
+  border-color: var(--brand);
+  transform: scale(1.1);
+  box-shadow: 0 0 0 2px var(--brand), 0 2px 8px rgba(0, 0, 0, 0.22);
 }

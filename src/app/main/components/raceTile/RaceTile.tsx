@@ -4,6 +4,7 @@ import { resolveRaceImage } from "@/utils/resolveRaceImage";
 import { useNavigate } from "react-router-dom";
 import { Heart } from "lucide-react";
 import type { RaceCardProps } from "@/types/types";
+import { effectiveRaceStatus } from "@/utils/raceStatus";
 
 const STATUS_COLOR: Record<string, string> = {
   running: "#3edda4",
@@ -31,7 +32,7 @@ const RaceTile: React.FC<RaceCardProps> = ({
 
   const resolvedImage = resolveRaceImage(image);
 
-  const statusKey = status ?? "upcoming";
+  const statusKey = effectiveRaceStatus(status, date);
 
   const handleFavorite = (e: React.MouseEvent) => {
     e.stopPropagation();

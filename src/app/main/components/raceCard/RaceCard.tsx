@@ -12,6 +12,7 @@ import {
   Trash2,
   Users
 } from "lucide-react";
+import { effectiveRaceStatus } from "@/utils/raceStatus";
 
 const STATUS_LABEL: Record<string, string> = {
   running: "Live",
@@ -40,7 +41,7 @@ const RaceCard: React.FC<RaceCardProps> = ({
 
   const resolvedImage = resolveRaceImage(image);
 
-  const statusKey = status ?? "upcoming";
+  const statusKey = effectiveRaceStatus(status, date);
 
   const handleFavorite = (e: React.MouseEvent) => {
     e.stopPropagation();

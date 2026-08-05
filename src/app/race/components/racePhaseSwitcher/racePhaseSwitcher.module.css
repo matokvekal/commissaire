@@ -123,12 +123,28 @@
 }
 
 /* compactOnMobile (heat header): the switcher shares the row with the race
-   info and the clock/settings. On phones the WORDS stay (Race / Start / Live)
-   and the icons go — the words are what the commissaire reads at a glance. */
+   info and the clock/settings, on EVERY screen width — not just phones — so
+   it must never claim the base rule's width:100%, or it fights raceInfo for
+   space and the two visually collide. A fixed (not auto) flex-basis is what
+   makes the three buttons divide evenly — flex:1 children only split space
+   equally when their parent's own size is definite; an auto/hug parent sizes
+   each button to its own content instead, so "Race" ends up a different
+   width than "Live". 420px reads as comfortably wide on desktop without
+   stretching across the whole header; it can still shrink (down to
+   min-width) if the window is narrower. */
+.compactOnMobile {
+  flex: 0 1 420px;
+  min-width: 260px;
+  width: auto;
+}
+
+/* On phones the WORDS stay (Race / Start / Live) and the icons go — the
+   words are what the commissaire reads at a glance. */
 @media (max-width: 640px) {
   .compactOnMobile {
+    flex-basis: auto;
+    min-width: 0;
     gap: 4px;
-    width: auto;
   }
   .compactOnMobile .btn {
     flex: 0 0 auto;

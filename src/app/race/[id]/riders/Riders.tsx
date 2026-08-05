@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { LayoutList, LayoutGrid, Layers, Play, Flag, Trash2, Pencil, Upload, Camera, ChevronDown } from "lucide-react";
 import styles from "./riders.module.css";
 import Button from "@/components/ui/Button";
@@ -65,6 +66,7 @@ function getNowWave(categories: CategoryProps[], catWaveMap: Map<string, number>
 }
 
 const Riders: React.FC<ManageHeatProps> = ({ raceUuid, categories, onEditMode }) => {
+  const { t } = useTranslation();
   const previousRaceUuid = useRef<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [sortBy, setSortBy] = useState<SortKey>("name");
@@ -268,9 +270,11 @@ const Riders: React.FC<ManageHeatProps> = ({ raceUuid, categories, onEditMode })
                   type="button"
                   role="menuitem"
                   className={styles.actionItem}
-                  onClick={() => { setActionsOpen(false); setImportMode("scan"); setShowImportWizard(true); }}
+                  disabled
+                  title={t("scan.tooltip", "Scan Start List — coming soon")}
                 >
-                  <Camera size={15} /> Scan Start List
+                  <Camera size={15} /> {t("scan.list", "Scan Start List")}
+                  <span className={styles.comingSoonBadge}>{t("scan.soon", "Soon")}</span>
                 </button>
                 {onEditMode && (
                   <button

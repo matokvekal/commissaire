@@ -6,6 +6,8 @@ import { riderTotalTime } from "@/utils/timeUtils";
 interface Props {
   rider: RiderProps;
   catColor: string;
+  /** "+M:SS" / "+NL" behind the category leader, or "—" for the leader themself. */
+  gapToLeader?: string;
   onClose: () => void;
   onRevertLap: (rider: RiderProps) => void;
   onStatusChange: (rider: RiderProps, status: RiderProps["status"]) => void;
@@ -15,6 +17,7 @@ interface Props {
 const RiderLiveModal: React.FC<Props> = ({
   rider,
   catColor,
+  gapToLeader,
   onClose,
   onRevertLap,
   onStatusChange,
@@ -68,6 +71,12 @@ const RiderLiveModal: React.FC<Props> = ({
             <span className={styles.statLabel}>Position</span>
             <span className={styles.statVal}>P{rider.position_category ?? "—"}</span>
           </div>
+          {gapToLeader && (
+            <div className={styles.stat}>
+              <span className={styles.statLabel}>Gap</span>
+              <span className={styles.statVal}>{gapToLeader}</span>
+            </div>
+          )}
           <div className={styles.stat}>
             <span className={styles.statLabel}>Last lap</span>
             <span className={styles.statVal}>{rider.elapsedLastLap || "—"}</span>

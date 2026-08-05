@@ -1,6 +1,7 @@
 import styles from "./login.module.css";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Trans, useTranslation } from "react-i18next";
 import { useDataStore } from "@/stores/appStore";
 import { validateForm } from "@/utils/loginValidation";
 import ArcadeTopbar from "@/components/arcade/ArcadeTopbar";
@@ -13,6 +14,7 @@ import LoginInput from "./LoginInput";
 const LOGIN_ENABLED = false;
 
 const LoginPage = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const signUp = useDataStore((state) => state.handleSignUp);
   const setLoginState = useDataStore((state) => state.setLoginState);
@@ -98,15 +100,17 @@ const LoginPage = () => {
 
       <div className={styles.content}>
         <div className={styles.card}>
-          <div className={styles.soonRibbon}>Soon</div>
+          <div className={styles.soonRibbon}>{t("login.soon", "Soon")}</div>
 
           <div className={styles.cardHead}>
-            <div className={styles.kicker}>PLAYER PROFILE</div>
-            <h1 className={styles.title}>Sign Up</h1>
+            <div className={styles.kicker}>{t("login.kicker", "PLAYER PROFILE")}</div>
+            <h1 className={styles.title}>{t("login.title", "Sign Up")}</h1>
             <p className={styles.lead}>
-              Accounts and cloud sync are on the roadmap. Until then the whole
-              app runs <strong>free on your device</strong> — no sign-up
-              needed.
+              <Trans i18nKey="login.lead" components={{ strong: <strong /> }}>
+                Accounts and cloud sync are on the roadmap. Until then the whole
+                app runs <strong>free on your device</strong> — no sign-up
+                needed.
+              </Trans>
             </p>
           </div>
 
@@ -117,18 +121,20 @@ const LoginPage = () => {
               className={styles.fieldset}
               disabled={!LOGIN_ENABLED}
               aria-label={
-                LOGIN_ENABLED ? undefined : "Sign-up coming soon (disabled)"
+                LOGIN_ENABLED
+                  ? undefined
+                  : t("login.ariaDisabled", "Sign-up coming soon (disabled)")
               }
             >
               <LoginInput
-                label="Surname"
+                label={t("login.labelSurname", "Surname")}
                 name="familyName"
                 value={formData.familyName}
                 onChange={handleChange}
                 error={formErrors.familyName}
               />
               <LoginInput
-                label="Phone number"
+                label={t("login.labelPhone", "Phone number")}
                 name="parentPhone"
                 type="tel"
                 value={formData.parentPhone}
@@ -136,7 +142,7 @@ const LoginPage = () => {
                 error={formErrors.parentPhone}
               />
               <LoginInput
-                label="Email"
+                label={t("login.labelEmail", "Email")}
                 name="email"
                 type="email"
                 value={formData.email}
@@ -151,10 +157,7 @@ const LoginPage = () => {
                   checked={formData.readAndAgreeTerms}
                   onChange={handleChange}
                 />
-                <span>
-                  I agree to the <em>terms of use</em> and{" "}
-                  <em>privacy policy</em>
-                </span>
+                <span>{t("login.agree", "I agree to the terms of use and privacy policy")}</span>
               </label>
               {formErrors.readAndAgreeTerms && (
                 <p className={styles.error}>{formErrors.readAndAgreeTerms}</p>
@@ -165,17 +168,17 @@ const LoginPage = () => {
                 type="submit"
                 disabled={!LOGIN_ENABLED || isFormIncomplete}
               >
-                {LOGIN_ENABLED ? "Create Account" : "Coming Soon"}
+                {LOGIN_ENABLED ? t("login.submitEnabled", "Create Account") : t("login.submitDisabled", "Coming Soon")}
               </button>
             </fieldset>
           </form>
 
           <div className={styles.divider}>
-            <span>meanwhile</span>
+            <span>{t("login.meanwhile", "meanwhile")}</span>
           </div>
 
           <button className={styles.playCta} onClick={() => navigate("/main")}>
-            ▶ Start Racing — No Account
+            {t("login.playCta", "▶ Start Racing — No Account")}
           </button>
         </div>
       </div>

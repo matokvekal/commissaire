@@ -139,6 +139,32 @@
   flex-shrink: 0;
 }
 
+.actionItem:disabled {
+  cursor: not-allowed;
+  color: #9fb1c9;
+  opacity: 0.75;
+}
+
+.actionItem:disabled:hover {
+  background: transparent;
+}
+
+.actionItem:disabled svg {
+  color: #b7c6dd;
+}
+
+.comingSoonBadge {
+  margin-left: auto;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #7a5b0e;
+  background: #ffe9b3;
+  border-radius: 999px;
+}
+
 /* ── View mode buttons — casino/game style (matches the race tab bars) ── */
 .viewModeGroup {
   display: flex;

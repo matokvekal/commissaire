@@ -152,6 +152,28 @@ const Heat: React.FC = () => {
     return cat?.color ?? rider.color ?? "#ccc";
   };
 
+  // Gap to the category leader (position_category === 1), shown in the
+  // double-tap detail modal only — reuses the ranking calculatePositions()
+  // already assigns, so no extra sort here. Always a time diff ("+M:SS"),
+  // never a lap count, even when the rider is a lap down (user req); "—" for
+  // the leader themself.
+  const getGapToLeader = (rider: RiderProps): string => {
+    if (rider.position_category === 1) return "—";
+    const cat = categories.find((c) => riderInCategory(rider, c));
+    if (!cat) return "—";
+    const leader = filteredRiders.find((r) => riderInCategory(r, cat) && r.position_category === 1);
+    if (!leader) return "—";
+    const leaderStart = parseClockTime(leader.timeStartRace);
+    const riderStart = parseClockTime(rider.timeStartRace);
+    if (!leaderStart || !riderStart) return "—";
+    const leaderEnd = leader.timeArrive ? new Date(leader.timeArrive) : new Date();
+    const riderEnd = rider.timeArrive ? new Date(rider.timeArrive) : new Date();
+    const diffMs = (riderEnd.getTime() - riderStart.getTime()) - (leaderEnd.getTime() - leaderStart.getTime());
+    if (!isFinite(diffMs) || diffMs <= 0) return "—";
+    const s = Math.floor(diffMs / 1000);
+    return `+${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  };
+
   // A rider "still on the track": their category's race has ended but they
   // haven't finished — the organizer must not lose sight of them.
   const isOnTrackAfterEnd = (rider: RiderProps): boolean =>
@@ -646,6 +668,7 @@ const Heat: React.FC = () => {
         <RiderLiveModal
           rider={contextRider}
           catColor={getCatColor(contextRider)}
+          gapToLeader={getGapToLeader(contextRider)}
           onClose={() => setContextRider(null)}
           onRevertLap={handleRevertLap}
           onStatusChange={handleStatusChange}
@@ -666,7 +689,14 @@ const Heat: React.FC = () => {
 
       {/* Voice settings modal */}
       {showVoiceSettings && (
-        <VoiceSettingsModal onClose={() => setShowVoiceSettings(false)} />
+        <VoiceSettingsModal
+          onClose={() => setShowVoiceSettings(false)}
+          canClearBoard={waveStopped && !clearedWave}
+          onClearBoard={() => {
+            setShowVoiceSettings(false);
+            setConfirmClear(true);
+          }}
+        />
       )}
 
       {/* Microphone permission pre-prompt */}
@@ -733,80 +763,75 @@ const Heat: React.FC = () => {
       )}
 
       <div className={styles.wrapper}>
-        {/* Timer row with wave-info button: which wave is live + its started categories */}
-        <div className={styles.timerRow}>
-          {/* Rider action log — lives in the timer row's empty left column so it
-              scrolls/reflows with the clock and wave chip instead of floating
-              over them on its own fixed coordinates. */}
-          <div className={styles.logSlot}>
-            <RiderActionLog
-              actions={riderActions}
-              isOpen={showActionLog}
-              onToggle={() => setShowActionLog(!showActionLog)}
-              onCancel={(actionId, riderName) => {
-                // The hook owns the undo: exact snapshot restore, queue slot restore,
-                // and cancelling any pending drop-to-end (BUGS.md #10, #29).
-                if (!cancelAction(actionId)) return;
-                toast.success(`Cancelled: ${riderName}`);
-              }}
-            />
-          </div>
-          <p className={styles.timerText}>{elapsedTime}</p>
-          <button className={styles.waveInfoBtn} onClick={() => setShowWaveInfo(true)} title="Wave info">
-            {heatId != null && <span className={styles.waveInfoLabel}>Wave {heatId}</span>}
-            {waveCategories
-              .filter((c) => c.status === "running" || c.status === "finished")
-              .slice(0, 4)
-              .map((cat) => (
-                <span key={cat.id} className={styles.miniDot} style={{ background: cat.color ?? "#ccc" }} />
-              ))}
-          </button>
-        </div>
-
-        {/* Clear the board once the wave is fully stopped (BUGS.md #14) —
-            resets the clock to 0 and removes every card. Results are untouched. */}
-        {waveStopped && !clearedWave && (
-          <div className={styles.clearRow}>
-            <button className={styles.clearBtn} onClick={() => setConfirmClear(true)}>
-              Clear board
+        {/* Control panel: clock, wave info, Joker and bib search, grouped
+            into one elevated card so this reads as a single distinct zone
+            between the header and the racing grid. */}
+        <div className={styles.controlPanel}>
+          {/* Timer row with wave-info button: which wave is live + its started categories */}
+          <div className={styles.timerRow}>
+            {/* Rider action log — lives in the timer row's empty left column so it
+                scrolls/reflows with the clock and wave chip instead of floating
+                over them on its own fixed coordinates. */}
+            <div className={styles.logSlot}>
+              <RiderActionLog
+                actions={riderActions}
+                isOpen={showActionLog}
+                onToggle={() => setShowActionLog(!showActionLog)}
+                onCancel={(actionId, riderName) => {
+                  // The hook owns the undo: exact snapshot restore, queue slot restore,
+                  // and cancelling any pending drop-to-end (BUGS.md #10, #29).
+                  if (!cancelAction(actionId)) return;
+                  toast.success(`Cancelled: ${riderName}`);
+                }}
+              />
+            </div>
+            <p className={styles.timerText}>{elapsedTime}</p>
+            <button className={styles.waveInfoBtn} onClick={() => setShowWaveInfo(true)} title="Wave info">
+              {heatId != null && <span className={styles.waveInfoLabel}>Wave {heatId}</span>}
+              {waveCategories
+                .filter((c) => c.status === "running" || c.status === "finished")
+                .slice(0, 4)
+                .map((cat) => (
+                  <span key={cat.id} className={styles.miniDot} style={{ background: cat.color ?? "#ccc" }} />
+                ))}
             </button>
           </div>
-        )}
 
-        <div className={styles.searchWrapper}>
-          <div className={styles.searchWrapperLeft}>
-            {jokerEnabled && (
-              <button
-                className={styles.jokerBtn}
-                onClick={addJoker}
-                aria-label="Add Joker"
-                title="Stamp an unidentified rider's arrival time now"
-              >
-                <Bike size={20} aria-hidden="true" />
-                {jokers.length > 0 && (
-                  <span className={styles.jokerBadge}>{jokers.length}</span>
-                )}
-              </button>
-            )}
+          <div className={styles.searchWrapper}>
+            <div className={styles.searchWrapperLeft}>
+              {jokerEnabled && (
+                <button
+                  className={styles.jokerBtn}
+                  onClick={addJoker}
+                  aria-label="Add Joker"
+                  title="Stamp an unidentified rider's arrival time now"
+                >
+                  <Bike size={20} aria-hidden="true" />
+                  {jokers.length > 0 && (
+                    <span className={styles.jokerBadge}>{jokers.length}</span>
+                  )}
+                </button>
+              )}
+            </div>
+            <div className={styles.inputContainer}>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={5}
+                className={styles.searchInput}
+                placeholder="#"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {searchTerm ? (
+                <button className={styles.clearSearch} onClick={() => setSearchTerm("")}>✕</button>
+              ) : (
+                <img src={Icons.search} alt="search" width={16} height={16} className={styles.inputIcon} />
+              )}
+            </div>
+            <div className={styles.searchWrapperRight} />
           </div>
-          <div className={styles.inputContainer}>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={5}
-              className={styles.searchInput}
-              placeholder="#"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {searchTerm ? (
-              <button className={styles.clearSearch} onClick={() => setSearchTerm("")}>✕</button>
-            ) : (
-              <img src={Icons.search} alt="search" width={16} height={16} className={styles.inputIcon} />
-            )}
-          </div>
-          <div className={styles.searchWrapperRight} />
         </div>
 
         {/* Filter panel popup */}

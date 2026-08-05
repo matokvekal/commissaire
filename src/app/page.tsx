@@ -77,6 +77,10 @@ export default function LandingPage() {
         I have read and agree to the{" "}
         <Link className={styles.termsLink} to="/terms" target="_blank" rel="noopener noreferrer">
           Terms &amp; Conditions
+        </Link>{" "}
+        and{" "}
+        <Link className={styles.termsLink} to="/privacy" target="_blank" rel="noopener noreferrer">
+          Privacy Policy
         </Link>
         .
       </span>

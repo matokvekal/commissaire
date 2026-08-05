@@ -163,6 +163,11 @@ Tables: `users`, `races`, `race_members`, `categories`, `riders`, `lap_details`
 
 ### Features
 - [ ] **Excel export** — race results to `.xlsx` for federation submission (see `memory/project_excel_export.md`)
+- [ ] **Full-app UI translation (i18n)** — infra (`react-i18next`, lazy-loaded
+  `public/locales/<lng>/common.json`, language switcher in `HeaderMain`) shipped
+  for the Scan Start List "Soon" strings only; the other ~150+ files/1000+
+  hardcoded UI strings still need `t()` calls, migrated incrementally file by
+  file, not in one pass — see `src/app/i18n/i18n.ts` for the pattern to follow.
 - [ ] **PDF results** — printable results sheet per category
 - [ ] **Public results URL** — shareable read-only standing page (Viewer role link)
 - [ ] **QR code check-in** — rider scans QR → auto-checks in

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, DragEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Camera, Download } from "lucide-react";
 import type { MappingTemplate } from "@/types/csv.types";
 import { getAllTemplates } from "@/services/templateStorage";
@@ -23,6 +24,7 @@ function formatDate(ts: number): string {
 }
 
 export default function UploadStep({ onFileUpload, onScanClick }: UploadStepProps) {
+  const { t } = useTranslation();
   const [isDragging, setIsDragging] = useState(false);
   const [templates, setTemplates] = useState<MappingTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<MappingTemplate | null>(null);
@@ -166,8 +168,14 @@ export default function UploadStep({ onFileUpload, onScanClick }: UploadStepProp
       {onScanClick && (
         <div className={styles.scanRow}>
           <span className={styles.scanDivider}>or</span>
-          <button type="button" className={styles.scanButton} onClick={onScanClick}>
-            <Camera size={18} /> Scan Start List (photo)
+          <button
+            type="button"
+            className={styles.scanButton}
+            disabled
+            title={t("scan.tooltip", "Scan Start List (photo) — coming soon")}
+          >
+            <Camera size={18} /> {t("scan.listPhoto", "Scan Start List (photo)")}
+            <span className={styles.comingSoonBadge}>{t("scan.soon", "Soon")}</span>
           </button>
         </div>
       )}

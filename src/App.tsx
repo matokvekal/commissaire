@@ -1,5 +1,6 @@
 import React, { useEffect, Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+import "./app/i18n/i18n";
 import LandingPage from "./app/page";
 import Loader from "./app/components/Loader";
 import { InstallPrompt } from "./app/components/pwa/InstallPrompt";
@@ -18,6 +19,7 @@ const LoginErrorPage = lazy(() => import("./app/loginerror/page"));
 const MainPage = lazy(() => import("./app/main/page"));
 const ContactPage = lazy(() => import("./app/contact/page"));
 const TermsPage = lazy(() => import("./app/terms/page"));
+const PrivacyPage = lazy(() => import("./app/privacy/page"));
 const RacePage = lazy(() => import("./app/race/[id]/page"));
 const HeatPage = lazy(() => import("./app/race/[id]/heat/[heatId]/page"));
 const StandingPage = lazy(() => import("./app/race/[id]/standing/[heatId]/page"));
@@ -62,6 +64,7 @@ export default function App() {
           <Route path="/main" element={<MainPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/race" element={<Navigate to="/main" replace />} />
           <Route path="/race/:id" element={<RacePage />} />
           <Route path="/race/:id/heat/:heatId" element={<HeatPage />} />

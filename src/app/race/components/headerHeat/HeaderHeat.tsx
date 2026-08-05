@@ -32,20 +32,20 @@ function HeaderHeat({ raceId, onSettingsClick }: { raceId: string; onSettingsCli
   return (
     <div className={styles.headerRace}>
       <div className={styles.leftSection}>
-        <div className={styles.raceInfo}>
-          <div className={styles.raceLiveLabel}>
-            <span className={styles.liveDot}>●</span>
-            RACE LIVE
-          </div>
-          <div className={styles.raceName}>{race?.name || "Race"}</div>
-          {heatId && <div className={styles.waveLabel}>Wave {heatId}</div>}
-        </div>
+        <div className={styles.raceName}>{race?.name || "Race"}</div>
       </div>
 
       {/* Always-visible Setup / Race / Live switcher (icon-only on phones) */}
       <RacePhaseSwitcher compact />
 
       <div className={styles.rightSection}>
+        <div className={styles.liveWaveGroup}>
+          <div className={styles.raceLiveLabel}>
+            <span className={styles.liveDot}>●</span>
+            RACE LIVE
+          </div>
+          {heatId && <div className={styles.waveLabel}>Wave {heatId}</div>}
+        </div>
         <div className={styles.timeDisplay}>
           <div className={styles.timeLabel}>Clock</div>
           <div className={styles.time}>{currentTime}</div>

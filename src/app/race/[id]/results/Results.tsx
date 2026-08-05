@@ -19,12 +19,16 @@ type GroupBy = "category" | "wave";
 
 // Columns the user can show/hide on Results (BUGS.md #8). Position and Name are
 // always shown — Name is the whole point ("we cant see the name in some case").
-type ResultField = "bib" | "laps" | "time" | "status";
+// Gap/Speed default OFF (see loadVisibleFields) — keep the results list lean by
+// default and let commissaires opt into the denser view.
+type ResultField = "bib" | "laps" | "time" | "status" | "gap" | "speed";
 const RESULT_FIELDS: { key: ResultField; label: string }[] = [
   { key: "bib", label: "Bib #" },
   { key: "laps", label: "Laps" },
   { key: "time", label: "Time" },
   { key: "status", label: "Status" },
+  { key: "gap", label: "Gap to leader" },
+  { key: "speed", label: "Speed" },
 ];
 const FIELDS_STORAGE_KEY = "resultsVisibleFields";
 
@@ -49,6 +53,24 @@ function fmtTime(ms: number) {
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+}
+
+// "+M:SS" behind the category leader on elapsed time — always a time diff,
+// never a lap count, even when the rider is a lap down (user req).
+function fmtGap(leader: RiderProps | null, rider: RiderProps): string {
+  if (!leader || rider.id === leader.id) return "—";
+  const diffMs = riderElapsed(rider) - riderElapsed(leader);
+  if (!isFinite(diffMs) || diffMs <= 0) return "—";
+  const s = Math.floor(diffMs / 1000);
+  return `+${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+// Last recorded lap's speed (BUGS.md-style derived field — km/h needs
+// `race.distance` set as the circuit length; see useLapRecording.ts).
+function riderSpeedKph(rider: RiderProps): string {
+  const laps = rider.lapsDetails;
+  const kph = laps && laps.length > 0 ? laps[laps.length - 1].speed_kph : undefined;
+  return kph != null ? `${kph.toFixed(1)} km/h` : "—";
 }
 
 function riderElapsed(rider: RiderProps): number {
@@ -171,6 +193,13 @@ const Results: React.FC<Props> = ({ raceUuid }) => {
     const active = sorted.filter((r) => !["DNS", "DNF", "DSQ"].includes(r.status));
     const out = sorted.filter((r) => ["DNS", "DNF", "DSQ"].includes(r.status));
     const display = podiumMode ? active.slice(0, podSize) : sorted;
+    // Gap is always relative to the actual #1 by place, independent of whatever
+    // column the list is currently sorted by (name/bib/time) — not `active[0]`.
+    const leader = active.length > 0
+      ? [...active].sort((a, b) => a.lapsCounter !== b.lapsCounter
+          ? b.lapsCounter - a.lapsCounter
+          : riderElapsed(a) - riderElapsed(b))[0]
+      : null;
 
     return (
       <div key={catKey} className={styles.categoryBlock}>
@@ -227,6 +256,12 @@ const Results: React.FC<Props> = ({ raceUuid }) => {
                 <span className={styles.time}>
                   {el && el !== Infinity ? fmtTime(el) : "—"}
                 </span>
+              )}
+              {visibleFields.has("gap") && (
+                <span className={styles.gap}>{isOut ? "—" : fmtGap(leader, rider)}</span>
+              )}
+              {visibleFields.has("speed") && (
+                <span className={styles.speed}>{riderSpeedKph(rider)}</span>
               )}
               {visibleFields.has("status") && (() => {
                 const info = getRiderStatusInfo(rider);

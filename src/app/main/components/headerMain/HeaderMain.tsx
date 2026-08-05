@@ -6,9 +6,12 @@ import Version from "@/components/Version/Version";
 import { useNavigate } from "react-router-dom";
 import { useDataStore } from "@/stores/appStore";
 import Cookies from "js-cookie";
-import { Bike, Download, Gamepad2, LogOut, Mail, Menu, MessageCircle, Palette, Timer, UserRound, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Bike, Download, Gamepad2, Globe, LogOut, Mail, Menu, MessageCircle, Palette, Timer, UserRound, X } from "lucide-react";
 // Relative: tsconfig only aliases specific "@/…" prefixes, and config isn't one.
 import { VERSION } from "../../../config/index";
+import { SUPPORTED_LANGUAGES } from "../../../i18n/i18n";
+import RiderFlag from "../../../race/components/riderFlag/RiderFlag";
 import { useTheme, type Theme } from "@/hooks/useTheme";
 import { useSkin, type Skin } from "@/hooks/useSkin";
 import { useJokerMode } from "@/hooks/useJokerMode";
@@ -33,6 +36,7 @@ function HeaderMain() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const navigate = useNavigate();
   const { user, getUser } = useDataStore();
+  const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
   const { skin, setSkin } = useSkin();
   const { jokerEnabled, toggleJokerEnabled } = useJokerMode();
@@ -125,8 +129,8 @@ function HeaderMain() {
             </>
           ) : (
             <>
-              <div className={styles.avatarName}>Guest</div>
-              <div className={styles.avatarSub}>Not signed in</div>
+              <div className={styles.avatarName}>{t("nav.guest", "Guest")}</div>
+              <div className={styles.avatarSub}>{t("nav.notSignedIn", "Not signed in")}</div>
             </>
           )}
         </div>
@@ -140,7 +144,7 @@ function HeaderMain() {
               onClick={handleLogout}
             >
               <LogOut className={styles.navItemIcon} aria-hidden="true" />
-              Logout
+              {t("nav.logout", "Logout")}
             </Button>
           ) : (
             <Button
@@ -153,8 +157,8 @@ function HeaderMain() {
               }}
             >
               <UserRound className={styles.navItemIcon} aria-hidden="true" />
-              Register / Login
-              <span className={styles.soonBadge}>Soon</span>
+              {t("nav.registerLogin", "Register / Login")}
+              <span className={styles.soonBadge}>{t("login.soon", "Soon")}</span>
             </Button>
           )}
           <Button
@@ -167,7 +171,7 @@ function HeaderMain() {
             }}
           >
             <MessageCircle className={styles.navItemIcon} aria-hidden="true" />
-            Contact
+            {t("nav.contact", "Contact")}
           </Button>
           <Button
             variant="ghost"
@@ -179,7 +183,7 @@ function HeaderMain() {
             }}
           >
             <Bike className={styles.navItemIcon} aria-hidden="true" />
-            My Races
+            {t("nav.myRaces", "My Races")}
           </Button>
           {/* Downloadable Excel start-list template — fill in your riders, then
               import it. Served from public/ so it must go through BASE_URL. */}
@@ -190,7 +194,7 @@ function HeaderMain() {
             onClick={() => setDrawerOpen(false)}
           >
             <Download className={styles.navItemIcon} aria-hidden="true" />
-            Download start-list template
+            {t("nav.downloadTemplate", "Download start-list template")}
           </a>
           {canInstall && (
             <Button
@@ -237,6 +241,34 @@ function HeaderMain() {
                   />
                 </span>
                 <span className={`${styles.themeLabel} ${theme === opt.value ? styles.themeLabelActive : ''}`}>
+                  {opt.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Language picker */}
+        <div className={styles.themeSection}>
+          <div className={styles.themeSectionLabel}>
+            <Globe className={styles.themeSectionIcon} aria-hidden="true" />
+            Language
+          </div>
+          <div className={styles.languageGrid}>
+            {SUPPORTED_LANGUAGES.map(opt => (
+              <button
+                key={opt.code}
+                className={styles.languageOption}
+                onClick={() => i18n.changeLanguage(opt.code)}
+                aria-label={opt.label}
+                title={opt.label}
+              >
+                <span
+                  className={`${styles.languageFlag} ${i18n.resolvedLanguage === opt.code ? styles.languageFlagActive : ''}`}
+                >
+                  <RiderFlag flag={opt.flag} size={38} />
+                </span>
+                <span className={`${styles.themeLabel} ${i18n.resolvedLanguage === opt.code ? styles.themeLabelActive : ''}`}>
                   {opt.label}
                 </span>
               </button>

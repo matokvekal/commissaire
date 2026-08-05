@@ -49,14 +49,36 @@
   min-height: 0;
 }
 
+/* ── Control panel: clock, wave info, Joker and bib search grouped into one
+   elevated "console" card so they read as a single distinct zone — clearly
+   separate from the dark header above and the open card grid below, instead
+   of controls floating loose on the busy racing background. ── */
+.controlPanel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 18px;
+  box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  padding: 2px 6px 8px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+
 /* ── Search wrapper (under timer). Search input stays centered; the Joker
    button (when enabled) pins to the left on the same row. ── */
 .searchWrapper {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  margin-bottom: 4px;
   flex-shrink: 0;
+}
+
+/* Thin divider between the clock row and the search row inside the panel —
+   a quiet visual break instead of the two rows just running together. */
+.controlPanel .searchWrapper {
+  border-top: 1px solid var(--border-soft, rgba(20, 40, 80, 0.1));
+  padding-top: 8px;
+  margin-top: 2px;
 }
 
 .searchWrapperLeft {
@@ -528,31 +550,8 @@
   }
 }
 
-/* ── Clear board (BUGS.md #14) ── */
-.clearRow {
-  display: flex;
-  justify-content: center;
-  margin-top: 6px;
-}
-
-.clearBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-card);
-  border-radius: 18px;
-  padding: 6px 16px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.clearBtn:hover {
-  background: var(--bg-surface);
-}
-
+/* ── Clear board (BUGS.md #14) — trigger lives in VoiceSettingsModal
+   (Live Settings); this confirm dialog stays on the Heat page. ── */
 .clearConfirmText {
   margin: 0;
   font-size: 13px;

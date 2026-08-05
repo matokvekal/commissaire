@@ -372,6 +372,7 @@
 
 .name {
   flex: 1;
+  min-width: 76px;
   font-weight: 500;
   color: #1a1a2e;
   white-space: nowrap;
@@ -391,6 +392,26 @@
   font-weight: 700;
   color: #1a304f;
   width: 64px;
+  text-align: right;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.gap {
+  font-size: 12px;
+  font-weight: 700;
+  color: #7a7a9a;
+  width: 48px;
+  text-align: right;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.speed {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4a6178;
+  width: 62px;
   text-align: right;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;

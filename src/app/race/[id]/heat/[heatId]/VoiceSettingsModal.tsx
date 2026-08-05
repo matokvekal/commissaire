@@ -4,6 +4,10 @@ import { BOARD_HOLD_OPTIONS, useBoardHold } from '@/stores/boardHoldStore';
 
 interface VoiceSettingsModalProps {
   onClose: () => void;
+  /** Wave is fully stopped and hasn't been cleared yet — show the Clear board action. */
+  canClearBoard?: boolean;
+  /** Opens the clear-board confirmation (BUGS.md #14); owned by the Heat page. */
+  onClearBoard?: () => void;
 }
 
 /**
@@ -24,7 +28,7 @@ function isIosStandalonePwa(): boolean {
   return isIos && isStandalone;
 }
 
-export function VoiceSettingsModal({ onClose }: VoiceSettingsModalProps) {
+export function VoiceSettingsModal({ onClose, canClearBoard, onClearBoard }: VoiceSettingsModalProps) {
   const { settings, setLanguage, setAutoConfirm } = useVoiceSettingsStore();
   const { holdMs, setHoldMs } = useBoardHold();
   const iosPwa = isIosStandalonePwa();
@@ -44,6 +48,22 @@ export function VoiceSettingsModal({ onClose }: VoiceSettingsModalProps) {
             <div className={styles.iosWarning}>
               ⚠️ On iPhone/iPad, voice input does not work in the installed app.
               Open this page in <strong>Safari</strong> to use voice.
+            </div>
+          )}
+
+          {/* Clear board (BUGS.md #14) — only ever relevant once the wave has
+              actually stopped, so it lives here instead of permanently taking
+              up space on the live screen. Results stay in the Results tab. */}
+          {canClearBoard && (
+            <div className={styles.section}>
+              <label className={styles.label}>Wave finished</label>
+              <button className={styles.clearBoardBtn} onClick={onClearBoard}>
+                Clear board
+              </button>
+              <p className={styles.hint}>
+                Resets the clock to 00:00:00 and removes every rider card from
+                the live view. Race results are kept in the Results tab.
+              </p>
             </div>
           )}
 
