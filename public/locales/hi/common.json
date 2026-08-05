@@ -1,6 +1,6 @@
 {
-  "scan.list": "स्टार्ट लिस्ट स्कैन करें",
-  "scan.listPhoto": "स्टार्ट लिस्ट स्कैन करें (फ़ोटो)",
+  "scan.list": "लिस्ट स्कैन करें",
+  "scan.listPhoto": "लिस्ट स्कैन करें (फ़ोटो)",
   "scan.soon": "जल्द",
   "scan.tooltip": "स्टार्ट लिस्ट स्कैन करें — जल्द आ रहा है",
   "login.soon": "जल्द",
@@ -12,7 +12,7 @@
   "login.labelEmail": "ईमेल",
   "login.agree": "मैं उपयोग की शर्तों और गोपनीयता नीति से सहमत हूँ",
   "login.ariaDisabled": "साइन अप जल्द आ रहा है (निष्क्रिय)",
-  "login.submitDisabled": "जल्द आ रहा है",
+  "login.submitDisabled": "जल्द",
   "login.submitEnabled": "खाता बनाएं",
   "login.meanwhile": "इस बीच",
   "login.playCta": "▶ रेस शुरू करें — बिना खाते के",
