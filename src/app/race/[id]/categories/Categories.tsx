@@ -6,62 +6,18 @@ import { CategoryProps, CategoryTemplate, RiderProps } from "@/types/types";
 import { COLORS } from "@/constants/index";
 import useCategoryStore from "@/stores/categoryStore";
 import useRiderStore from "@/stores/ridersStore";
-import { buildSchedule, DEFAULT_WAVE_GAP_MINUTES } from "../schedule/Schedule";
+import useRaceStore from "@/stores/racesStore";
+import { buildSchedule, DEFAULT_WAVE_GAP_MINUTES, catWaveKey } from "../schedule/Schedule";
+import { getCategoryStatusInfo } from "@/utils/statusChip";
+import { PREDEFINED_CATEGORY_TEMPLATES } from "@/constants/categoryTemplates";
+import { AuditLogService } from "@/services/auditLog/auditLogService";
 
 interface CategoriesProps {
   raceUuid: string;
 }
 
-const PREDEFINED_TEMPLATES: CategoryTemplate[] = [
-  {
-    id: "man-juniors",
-    name: "Man Juniors",
-    subCategories: [],
-    color: "#63A6FC",
-    createdAt: new Date(),
-    lastUsed: new Date()
-  },
-  {
-    id: "woman-juniors",
-    name: "Woman Juniors",
-    subCategories: [],
-    color: "#E05585",
-    createdAt: new Date(),
-    lastUsed: new Date()
-  },
-  {
-    id: "man-masters",
-    name: "Man Masters",
-    subCategories: ["19-29", "30-39", "40-49", "50-59", "60+"],
-    color: "#3EDDA4",
-    createdAt: new Date(),
-    lastUsed: new Date()
-  },
-  {
-    id: "woman-masters",
-    name: "Woman Masters",
-    subCategories: ["19-29", "30-39", "40-49", "50-59", "60+"],
-    color: "#FFC300",
-    createdAt: new Date(),
-    lastUsed: new Date()
-  },
-  {
-    id: "man-elite",
-    name: "Man Elite",
-    subCategories: [],
-    color: "#9D4EDD",
-    createdAt: new Date(),
-    lastUsed: new Date()
-  },
-  {
-    id: "woman-elite",
-    name: "Woman Elite",
-    subCategories: [],
-    color: "#FF006E",
-    createdAt: new Date(),
-    lastUsed: new Date()
-  }
-];
+// Built-in category bank — single source of truth (BUGS.md #5).
+const PREDEFINED_TEMPLATES = PREDEFINED_CATEGORY_TEMPLATES;
 
 const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
   const [templates, setTemplates] = useState<CategoryTemplate[]>([]);
@@ -75,7 +31,6 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
   const [quickLapsValues, setQuickLapsValues] = useState<Record<number, number | null>>({});
   const [newCategoryForm, setNewCategoryForm] = useState({
     name: "",
-    subCategory: "",
     color: "#63A6FC",
     laps: 5,
     heat: 1
@@ -83,6 +38,7 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
 
   const { categories, updateCategory, getCategories } = useCategoryStore();
   const { riders, updateRider } = useRiderStore();
+  const race = useRaceStore((s) => s.races.find((r) => r.uuid === raceUuid));
 
   const raceCategories = categories.filter((c) => c.raceUuid === raceUuid);
 
@@ -90,7 +46,7 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
     const schedule = buildSchedule(raceCategories, DEFAULT_WAVE_GAP_MINUTES);
     const map = new Map<string, number>();
     schedule.forEach((startMap, waveNum) => {
-      startMap.forEach((cats) => cats.forEach((cat) => map.set(cat.name, waveNum)));
+      startMap.forEach((cats) => cats.forEach((cat) => map.set(catWaveKey(cat.name, cat.subCategory), waveNum)));
     });
     return map;
   }, [raceCategories]);
@@ -111,13 +67,15 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
 
   const handleAddFromBank = (template: CategoryTemplate) => {
     if (template.subCategories.length > 0) {
-      // Add each sub-category as a separate category
+      // Legacy template saved before BUGS.md #2 — flatten each sub-category into
+      // its own standalone category ("Man Masters" + "30-39" → "Man Masters 30-39")
+      // instead of creating nested ones.
       template.subCategories.forEach((subCat, idx) => {
         const newCat: CategoryProps = {
           id: Date.now() + idx,
           raceUuid,
-          name: template.name,
-          subCategory: subCat,
+          name: `${template.name} ${subCat}`.trim(),
+          subCategory: null,
           laps: 5,
           lapsCounter: 0,
           riders: 0,
@@ -146,6 +104,16 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
       };
       updateCategory(newCat);
     }
+    if (race) {
+      AuditLogService.log({
+        race,
+        action: "ADD_CATEGORY",
+        screen: "Categories",
+        entityType: "category",
+        entityId: template.name,
+        details: { source: "bank" },
+      });
+    }
     setShowAddFromBank(false);
     // Force refresh categories
     getCategories(raceUuid);
@@ -161,6 +129,36 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
     setEditForm({});
   };
 
+  /**
+   * Persist a category AND push its laps/color onto every rider in it.
+   *
+   * Riders imported without a laps column start at totalLaps 0, so a category's
+   * lap count has to follow through to them — otherwise the live screen shows
+   * 0/0 instead of 0/5 (BUGS.md #7). Every place that changes `laps` must go
+   * through here, not straight to updateCategory.
+   *
+   * `laps || rider.totalLaps` is deliberate: a category sitting at 0/null means
+   * "not set yet" and must not wipe lap counts that came from the start list.
+   */
+  const updateCategoryAndSyncRiders = async (updated: CategoryProps) => {
+    await updateCategory(updated);
+
+    const categoryRiders = riders.filter(
+      (r) =>
+        r.raceUuid === raceUuid &&
+        r.category === updated.name &&
+        (r.subCategory ?? null) === (updated.subCategory ?? null)
+    );
+
+    for (const rider of categoryRiders) {
+      await updateRider({
+        ...rider,
+        color: updated.color,
+        totalLaps: updated.laps || rider.totalLaps
+      });
+    }
+  };
+
   const saveEdit = async () => {
     if (editingId === null) return;
 
@@ -172,21 +170,16 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
       ...editForm
     } as CategoryProps;
 
-    await updateCategory(updatedCategory);
-
-    // Update all riders in this category with new color/laps
-    const categoryRiders = riders.filter(
-      (r) =>
-        r.raceUuid === raceUuid &&
-        r.category === updatedCategory.name &&
-        (r.subCategory ?? null) === (updatedCategory.subCategory ?? null)
-    );
-
-    for (const rider of categoryRiders) {
-      await updateRider({
-        ...rider,
-        color: updatedCategory.color,
-        totalLaps: updatedCategory.laps || rider.totalLaps
+    await updateCategoryAndSyncRiders(updatedCategory);
+    if (race) {
+      AuditLogService.log({
+        race,
+        action: "EDIT_CATEGORY",
+        screen: "Categories",
+        entityType: "category",
+        entityId: category.name,
+        before: { laps: category.laps, color: category.color, heat: category.heat },
+        after: { laps: updatedCategory.laps, color: updatedCategory.color, heat: updatedCategory.heat },
       });
     }
 
@@ -232,6 +225,17 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
     } catch (error) {
       console.error("Error deleting category from IDB:", error);
     }
+
+    if (race) {
+      AuditLogService.log({
+        race,
+        action: "DELETE_CATEGORY",
+        screen: "Categories",
+        entityType: "category",
+        entityId: category.name,
+        before: { name: category.name, subCategory: category.subCategory, laps: category.laps },
+      });
+    }
   };
 
   const handleCreateNew = async () => {
@@ -244,7 +248,8 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
       id: Date.now(),
       raceUuid,
       name: newCategoryForm.name.trim(),
-      subCategory: newCategoryForm.subCategory.trim() || null,
+      // Sub-categories are no longer authored — one category per age band (BUGS.md #2)
+      subCategory: null,
       laps: newCategoryForm.laps,
       lapsCounter: 0,
       riders: 0,
@@ -256,10 +261,19 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
     };
 
     await updateCategory(newCat);
+    if (race) {
+      AuditLogService.log({
+        race,
+        action: "ADD_CATEGORY",
+        screen: "Categories",
+        entityType: "category",
+        entityId: newCat.name,
+        details: { source: "new", laps: newCat.laps, heat: newCat.heat },
+      });
+    }
     setShowCreateNew(false);
     setNewCategoryForm({
       name: "",
-      subCategory: "",
       color: "#63A6FC",
       laps: 5,
       heat: 1
@@ -313,7 +327,7 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
                   for (const cat of raceCategories) {
                     const newLaps = quickLapsValues[cat.id];
                     if (newLaps !== null && newLaps !== undefined && newLaps !== cat.laps) {
-                      await updateCategory({ ...cat, laps: newLaps });
+                      await updateCategoryAndSyncRiders({ ...cat, laps: newLaps });
                     }
                   }
                   setShowQuickLaps(false);
@@ -511,20 +525,31 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
                               · {cat.subCategory}
                             </span>
                           )}
+                          {(() => {
+                            const info = getCategoryStatusInfo(cat.status);
+                            return (
+                              <span
+                                className={styles.categoryStatusChip}
+                                style={{ background: `${info.color}1f`, color: info.color }}
+                              >
+                                {info.label}
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className={styles.categoryMeta}>
                           <span className={styles.lapsStepper}>
                             <button
                               className={styles.lapStepBtn}
-                              onClick={(e) => { e.stopPropagation(); updateCategory({ ...cat, laps: Math.max(0, (cat.laps ?? 0) - 1) }); }}
+                              onClick={(e) => { e.stopPropagation(); updateCategoryAndSyncRiders({ ...cat, laps: Math.max(0, (cat.laps ?? 0) - 1) }); }}
                             >−</button>
                             <span>{cat.laps ?? 0} laps</span>
                             <button
                               className={styles.lapStepBtn}
-                              onClick={(e) => { e.stopPropagation(); updateCategory({ ...cat, laps: (cat.laps ?? 0) + 1 }); }}
+                              onClick={(e) => { e.stopPropagation(); updateCategoryAndSyncRiders({ ...cat, laps: (cat.laps ?? 0) + 1 }); }}
                             >+</button>
                           </span>
-                          {" · "}Wave {catWaveMap.get(cat.name) ?? cat.heat ?? 1} · {riderCount} riders
+                          {" · "}Wave {catWaveMap.get(catWaveKey(cat.name, cat.subCategory)) ?? cat.heat ?? 1} · {riderCount} riders
                           {cat.linkedFinish && <span className={styles.linkedBadge}><Bell size={11} /> linked</span>}
                         </div>
                       </div>
@@ -655,22 +680,6 @@ const Categories: React.FC<CategoriesProps> = ({ raceUuid }) => {
                     })
                   }
                   placeholder="e.g., Man Elite"
-                />
-              </div>
-
-              <div className={styles.formGroup}>
-                <label>Sub-Category (optional)</label>
-                <input
-                  type="text"
-                  className={styles.input}
-                  value={newCategoryForm.subCategory}
-                  onChange={(e) =>
-                    setNewCategoryForm({
-                      ...newCategoryForm,
-                      subCategory: e.target.value
-                    })
-                  }
-                  placeholder="e.g., 30-39"
                 />
               </div>
 

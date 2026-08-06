@@ -40,8 +40,11 @@ const QuickAddRider: React.FC<Props> = ({ raceUuid, waveNum, categories, onDone 
       category: form.category,
       heat: waveNum,
       color: cat?.color ?? null,
+      // `totalLaps` is the only lap field on RiderProps. A stray `laps` used to be
+      // written alongside it — not part of the model, dead data in IndexedDB, and
+      // an invitation to read the wrong one (BUGS.md #21). Laps still resolve
+      // through the category via effectiveTotalLaps()/withCategoryLaps().
       totalLaps: cat?.laps ?? 0,
-      laps: cat?.laps ?? 0,
       checked: true,
       distance: null,
       elapsedLastLap: null,

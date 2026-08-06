@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import type { ColumnMapping, RiderFieldKey, MappingTemplate } from "@/types/csv.types";
-import { FIELD_KEYWORDS } from "@/types/csv.types";
+import { FIELD_KEYWORDS, IGNORED_FIELDS } from "@/types/csv.types";
 import {
   getColumnSuggestions,
   confirmMapping,
@@ -85,7 +85,9 @@ export default function ColumnMappingStep({
       needsConfirmation: false
     };
     setMappings(updated);
-    if (newField) {
+    // "Keep as info" is a per-file, freeform choice (BUGS.md #7) — don't teach
+    // the fuzzy matcher to auto-map this column to info next time.
+    if (newField && newField !== "infoField") {
       await confirmMapping(updated[index].sourceColumn, newField);
     }
   };
@@ -154,7 +156,7 @@ export default function ColumnMappingStep({
     firstNameEnglish: "First Name (English)",
     lastNameEnglish: "Last Name (English)",
     category: "Category",
-    subCategory: "Sub-Category",
+    subCategory: "Sub-Category (not imported)",
     team: "Team / Club",
     gender: "Gender",
     heat: "Wave Number",
@@ -164,6 +166,7 @@ export default function ColumnMappingStep({
     standing: "Standing / Ranking",
     raceDay: "Race Day",
     points: "Points",
+    uciPoints: "UCI Points",
     federation: "Federation",
     uciNumber: "UCI Number",
     idNumber: "ID Number",
@@ -173,11 +176,15 @@ export default function ColumnMappingStep({
     roadNumber: "Road Number",
     chip: "Chip",
     notes: "Notes",
+    infoField: "⭐ Keep as info (show on card)",
   };
 
   const FIELD_HINTS: Partial<Record<string, string>> = {
+    infoField:
+      "Stored as-is under this column's name and shown in the rider card's \"More info\" — not used by the app. Several columns can be info.",
     category: "Main group — e.g. Men Junior, Gravel, MTB",
-    subCategory: "Sub-group within a category — e.g. age range 19-29, 30-39",
+    subCategory:
+      "Not imported — categories are flat. Put the age band in the category itself, e.g. \"Man Masters 30-39\"",
     heat: "Wave group number — e.g. 1, 2, 3  (not a clock time)",
     startTime: "Clock start time — e.g. 09:00, 11:30  (not a wave number)",
   };
@@ -213,9 +220,16 @@ export default function ColumnMappingStep({
 
   const availableFields: (RiderFieldKey | null)[] = [
     null,
-    ...FIELD_KEYWORDS.map((f) => f.field).filter(
-      (f) => !usedFields.has(f) || mappings.find((m) => m.targetField === f)
-    )
+    // IGNORED_FIELDS stay out of the picker — they are detected only so their
+    // column isn't misread as something else, never imported (BUGS.md #2).
+    ...FIELD_KEYWORDS.map((f) => f.field)
+      .filter((f) => !IGNORED_FIELDS.has(f))
+      .filter(
+        (f) => !usedFields.has(f) || mappings.find((m) => m.targetField === f)
+      ),
+    // "Keep as info" is always offered and never deduped — many columns can be
+    // info at once (BUGS.md #7).
+    "infoField"
   ];
 
   const mappedCount = mappings.filter((m) => m.targetField !== null).length;

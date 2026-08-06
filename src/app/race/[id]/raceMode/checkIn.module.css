@@ -40,6 +40,58 @@
   color: #1a1a2e;
 }
 
+/* ── Standing sort bar ── */
+.standingBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.standingToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1a2e;
+  cursor: pointer;
+  user-select: none;
+}
+
+.standingToggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: #63a6fc;
+  cursor: pointer;
+}
+
+.scopeToggle {
+  display: flex;
+  border: 1.5px solid #d5e4fb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.scopeBtn {
+  padding: 5px 12px;
+  border: none;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7a7a9a;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+
+.scopeBtn + .scopeBtn { border-left: 1.5px solid #d5e4fb; }
+
+.scopeBtnActive {
+  background: #1a1a2e;
+  color: #fff;
+}
+
 .counts {
   display: flex;
   gap: 12px;
@@ -56,6 +108,55 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* ── Group-by-category blocks ── */
+.groupWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.catGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.catGroupHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #f3f4f8;
+}
+
+.catGroupBar {
+  width: 6px;
+  height: 16px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.catGroupName {
+  font-size: 13px;
+  font-weight: 800;
+  color: #1a1a2e;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.catGroupCount {
+  font-size: 11px;
+  font-weight: 700;
+  color: #3a9d7a;
+  background: rgba(62, 221, 164, 0.14);
+  padding: 2px 8px;
+  border-radius: 8px;
+  flex-shrink: 0;
 }
 
 .row {
@@ -76,6 +177,14 @@
 .row.out {
   opacity: 0.55;
   background: #fafafa;
+}
+
+/* Per-rider category color bar on the left of each list row */
+.rowColorBar {
+  width: 5px;
+  align-self: stretch;
+  border-radius: 3px;
+  flex-shrink: 0;
 }
 
 /* ── Left area: check circle + status trigger (OR status badge) ── */
@@ -172,6 +281,28 @@
   color: #e05585;
 }
 
+/* One-tap DNS on the row (BUGS.md #25) — same chip as .statusTrigger, tinted
+   so the destructive action reads as distinct from the neutral Status menu. */
+.dnsTrigger {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 7px;
+  border: 1.5px solid #e0c0cc;
+  border-radius: 6px;
+  background: #fff;
+  color: #c2456f;
+  cursor: pointer;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.dnsTrigger:hover {
+  background: #e05585;
+  border-color: #e05585;
+  color: #fff;
+}
+
 /* Status inline badge — replaces circle when DNS/DNF/DSQ set */
 .statusInlineBadge {
   padding: 5px 11px;
@@ -205,10 +336,32 @@
   border-color: rgba(140, 90, 210, 0.4);
 }
 
+.standingNum {
+  font-size: 12px;
+  font-weight: 800;
+  color: #1a304f;
+  min-width: 20px;
+  text-align: center;
+  background: rgba(99, 166, 252, 0.14);
+  border-radius: 6px;
+  padding: 2px 5px;
+  flex-shrink: 0;
+}
+
 .bib {
   font-size: 11px;
   color: #7a7a9a;
   width: 34px;
+  flex-shrink: 0;
+}
+
+.catDot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  margin-right: 5px;
+  vertical-align: middle;
   flex-shrink: 0;
 }
 
@@ -296,6 +449,13 @@
 
 .checkTileOut {
   opacity: 0.55;
+}
+
+/* Category color strip across the top of each card, always visible */
+.tileCatStrip {
+  height: 5px;
+  width: 100%;
+  flex-shrink: 0;
 }
 
 .checkTileInner {
