@@ -171,3 +171,22 @@
     display: none;
   }
 }
+
+/* Replaces the whole Setup/Start/Live switcher on a finalized race — there is
+   no phase left to switch to, so the control becomes a seal instead. */
+.finalTag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(224, 169, 44, 0.2), rgba(224, 169, 44, 0.08));
+  border: 1px solid rgba(224, 169, 44, 0.5);
+  color: #ffd464;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}

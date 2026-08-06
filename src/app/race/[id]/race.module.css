@@ -213,3 +213,31 @@
   align-items: center;
   background-color: white;
 }
+
+/* ── Finalized race banner ──────────────────────────────────────────────
+   Sits above the tab bar on a race closed with "Finish Race". Reads as a
+   seal, not an error: this is the desired end state, so it's gold/neutral
+   rather than red. */
+.finalBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(224, 169, 44, 0.16), rgba(224, 169, 44, 0.07));
+  border: 1px solid rgba(224, 169, 44, 0.45);
+  color: #f2e3bd;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.finalBanner strong {
+  color: #ffd464;
+}
+
+.finalBannerIcon {
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}

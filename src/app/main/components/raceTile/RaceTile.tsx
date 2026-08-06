@@ -26,6 +26,7 @@ const RaceTile: React.FC<RaceCardProps> = ({
   status,
   ridersCount,
   isFavorite,
+  finalized,
   onToggleFavorite
 }) => {
   const navigate = useNavigate();
@@ -44,12 +45,15 @@ const RaceTile: React.FC<RaceCardProps> = ({
       <div className={styles.imgWrap}>
         <img src={resolvedImage} alt={name} className={styles.img} />
 
+        {/* A finalized race is locked — that beats the date-derived status. */}
         <span
           className={styles.statusBadge}
-          style={{ background: STATUS_COLOR[statusKey] }}
+          style={{ background: finalized ? "#e0a92c" : STATUS_COLOR[statusKey] }}
+          title={finalized ? "Results are final and locked" : undefined}
+          data-testid={finalized ? "race-final-badge" : undefined}
         >
-          {statusKey === "running" && <span className={styles.dot} />}
-          {STATUS_LABEL[statusKey]}
+          {!finalized && statusKey === "running" && <span className={styles.dot} />}
+          {finalized ? "🔒 Final" : STATUS_LABEL[statusKey]}
         </span>
 
         <button className={`${styles.favBtn} ${isFavorite ? styles.favActive : ""}`} onClick={handleFavorite}>

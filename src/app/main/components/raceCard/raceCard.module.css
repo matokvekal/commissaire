@@ -108,6 +108,12 @@
   background: rgba(56, 87, 132, 0.1);
   color: #5f7596;
 }
+/* Race closed with "Finish Race" — locked, signed, final. */
+.badge_final {
+  background: rgba(224, 169, 44, 0.16);
+  color: #a8761a;
+  border: 1px solid rgba(224, 169, 44, 0.4);
+}
 
 /* Live pulse dot */
 .dot {

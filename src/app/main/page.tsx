@@ -249,6 +249,7 @@ const MainPage = () => {
                 isFavorite={race.isFavorite}
                 onToggleFavorite={handleToggleFavorite}
                 viewOnly={race.viewOnly}
+                finalized={Boolean(race.finalized)}
                 onDelete={handleDeleteRace}
               />
             ))}
@@ -291,6 +292,7 @@ const MainPage = () => {
                   status={race.status}
                   curentHeat={race.heat}
                   isFavorite={race.isFavorite}
+                  finalized={Boolean(race.finalized)}
                   onToggleFavorite={handleToggleFavorite}
                 />
               ))}

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./info.module.css";
 import { RaceProps } from "@/types/types";
 import Icons from "@/constants/Icons";
@@ -7,7 +7,7 @@ import useRaceStore from "@/stores/racesStore";
 import useRiderStore from "@/stores/ridersStore";
 import useCategoryStore from "@/stores/categoryStore";
 import { useAuthStore } from "@/stores/authStore";
-import { Edit2, Check, X, ExternalLink, Download, Upload, ShieldCheck, ScrollText } from "lucide-react";
+import { Edit2, Check, X, ExternalLink, Download, Upload, ShieldCheck, ScrollText, Flag, Lock } from "lucide-react";
 // xlsx (~430 kB) and its wrappers load on demand from the handlers below so they
 // stay out of the Race page's initial chunk (BUGS.md #1). Types are erased.
 import type { VerificationResult } from "@/utils/raceExport";
@@ -16,8 +16,16 @@ import { riderInCategory, catWaveKey } from "../schedule/Schedule";
 import ExportCategoriesModal from "./ExportCategoriesModal";
 import MergeImportModal, { ImportMode } from "./MergeImportModal";
 import AuditLogViewer from "./AuditLogViewer";
+import FinishRaceModal from "./FinishRaceModal";
 import { AuditLogService } from "@/services/auditLog/auditLogService";
 import { CategoryProps } from "@/types/types";
+import { finalizeRace } from "@/utils/finalizeRace";
+import {
+  riderResultsDigest,
+  shortToken,
+  verifyRaceFinalization,
+  type FinalizationCheck,
+} from "@/utils/raceSignature";
 import { toast } from "react-toastify";
 
 interface Props {
@@ -44,13 +52,70 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
   const [verifying, setVerifying] = useState(false);
   const [verification, setVerification] = useState<VerificationResult | null>(null);
   const [showAuditLog, setShowAuditLog] = useState(false);
+  const [showFinishRace, setShowFinishRace] = useState(false);
+  const [finalCheck, setFinalCheck] = useState<FinalizationCheck | null>(null);
   const updateRace = useRaceStore((s) => s.updateRace);
   const currentUser = useAuthStore((s) => s.currentUser);
   const { riders, deleteRidersByRace, insertRiders } = useRiderStore();
   const { categories } = useCategoryStore();
 
-  const raceRiders = riders.filter((r) => r.raceUuid === race.uuid);
-  const raceCats = categories.filter((c) => c.raceUuid === race.uuid);
+  const raceRiders = useMemo(
+    () => riders.filter((r) => r.raceUuid === race.uuid),
+    [riders, race.uuid]
+  );
+  const raceCats = useMemo(
+    () => categories.filter((c) => c.raceUuid === race.uuid),
+    [categories, race.uuid]
+  );
+
+  /** Identity stamped on exports and on the finalization record. */
+  const actingUser = currentUser?.email || currentUser?.id || "anonymous";
+  const finalized = race.finalized;
+
+  // Re-verify the certificate against the riders actually in the store, so a
+  // race whose data was altered out-of-band (dev tools, a hand-edited import)
+  // is reported as broken instead of presenting itself as official.
+  //
+  // The dependency is the results DIGEST, not the rider count: the whole point
+  // is to notice a swapped placing or a flipped status, and neither of those
+  // changes how many riders there are.
+  const storedDigest = useMemo(
+    () => (finalized ? riderResultsDigest(raceRiders) : ""),
+    [finalized, raceRiders]
+  );
+
+  useEffect(() => {
+    if (!finalized) { setFinalCheck(null); return; }
+    let cancelled = false;
+    verifyRaceFinalization(finalized, raceRiders)
+      .then((result) => { if (!cancelled) setFinalCheck(result); })
+      .catch(() => { if (!cancelled) setFinalCheck(null); });
+    return () => { cancelled = true; };
+    // raceRiders is covered by storedDigest — depending on the array itself
+    // would re-hash on every unrelated store write.
+  }, [finalized, storedDigest]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleFinishRace = async () => {
+    const result = await finalizeRace(race, actingUser);
+    AuditLogService.log({
+      race,
+      action: "FINISH_RACE",
+      screen: "Info",
+      entityType: "race",
+      entityId: race.uuid,
+      details: {
+        finalizedBy: result.finalized.by,
+        finalizedAt: result.finalized.at,
+        token: result.finalized.token,
+        riderCount: result.riderCount,
+        categoryCount: result.categoryCount,
+      },
+    });
+    setShowFinishRace(false);
+    toast.success(
+      `Race finished — ${result.riderCount} results locked and signed.`
+    );
+  };
 
   const handleExportConfirm = async (selected: CategoryProps[]) => {
     const partial = selected.length !== raceCats.length;
@@ -159,8 +224,23 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
           ],
         }));
         await insertRiders(remappedRiders);
+        // A full replace makes this race BE the imported one, so a file from a
+        // finished race brings its lock with it — that's how a final result
+        // handed to another commissaire stays final on their device. Stamped
+        // last, after the data is in, or the store guards would block the writes
+        // above. Merge mode deliberately does NOT adopt it: a partial merge is
+        // still someone's own in-progress race.
+        if (pendingImport.finalized) {
+          await updateRace({
+            ...race,
+            status: "finished",
+            finalized: pendingImport.finalized,
+          });
+        }
         toast.success(
-          `Imported ${remappedRiders.length} riders across ${remappedCats.length} categories`
+          pendingImport.finalized
+            ? `Imported final results — ${remappedRiders.length} riders. This race is now read-only.`
+            : `Imported ${remappedRiders.length} riders across ${remappedCats.length} categories`
         );
         AuditLogService.log({
           race,
@@ -282,9 +362,14 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
 
   return (
     <div className={styles.container}>
-      {/* Edit / Save / Cancel bar */}
+      {/* Edit / Save / Cancel bar — gone once the race is finalized: race
+          details are part of the signed record and the store rejects changes. */}
       <div className={styles.editBar}>
-        {!editMode ? (
+        {finalized ? (
+          <span className={styles.lockedNote} data-testid="info-locked-note">
+            <Lock size={13} /> Race details are locked
+          </span>
+        ) : !editMode ? (
           <button className={styles.editBarBtn} onClick={openEdit}>
             <Edit2 size={14} />
             Edit Race Info
@@ -301,7 +386,7 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
         )}
       </div>
 
-      {editMode ? (
+      {editMode && !finalized ? (
         /* ── EDIT FORM ── */
         <>
           <div className={styles.section}>
@@ -399,22 +484,27 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
         <div className={styles.dataSectionTitle}>Data Transfer</div>
         <div className={styles.dataBody}>
           <div className={styles.dataText}>
-            Export race data (riders, categories, lap results) to Excel — all of it, or only your
-            categories so the main commissaire can merge everyone's results after the race.
+            {finalized
+              ? "Export the final results to Excel. The file carries the race's signature, so whoever receives it can verify nothing was changed."
+              : "Export race data (riders, categories, lap results) to Excel — all of it, or only your categories so the main commissaire can merge everyone's results after the race."}
           </div>
           <div className={styles.dataButtons}>
             <button className={styles.exportBtn} onClick={() => setShowExportModal(true)}>
               <Download size={14} />
               Export to Excel
             </button>
-            <button
-              className={styles.importBtn}
-              onClick={() => importRef.current?.click()}
-              disabled={importing}
-            >
-              <Upload size={14} />
-              {importing ? "Importing…" : "Import from Excel"}
-            </button>
+            {/* Importing rewrites riders and categories — impossible once the
+                race is finalized, so the button goes rather than failing. */}
+            {!finalized && (
+              <button
+                className={styles.importBtn}
+                onClick={() => importRef.current?.click()}
+                disabled={importing}
+              >
+                <Upload size={14} />
+                {importing ? "Importing…" : "Import from Excel"}
+              </button>
+            )}
             <button
               className={styles.importBtn}
               onClick={() => verifyRef.current?.click()}
@@ -443,6 +533,15 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
                 <div className={styles.verifyMeta}>
                   Exported by <strong>{verification.exportedBy}</strong>
                   {verification.exportedAt ? ` on ${verification.exportedAt}` : ""}
+                </div>
+              )}
+              {verification.finalizedBy && (
+                <div className={styles.verifyMeta}>
+                  🔒 Final results — race closed by{" "}
+                  <strong>{verification.finalizedBy}</strong>
+                  {verification.finalizedAt
+                    ? ` on ${new Date(verification.finalizedAt).toLocaleString()}`
+                    : ""}
                 </div>
               )}
             </div>
@@ -479,6 +578,89 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
                 View Log
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Finish Race ──────────────────────────────────────────────────
+          The footer action, deliberately placed after everything else: it is
+          the last thing you do to a race. Hidden on a downloaded view-only
+          copy — you can't close someone else's event. */}
+      {!race.viewOnly && !finalized && (
+        <div className={styles.finishZone}>
+          <div className={styles.finishTitle}>
+            <Flag size={15} /> Finish Race
+          </div>
+          <div className={styles.finishBody}>
+            <div className={styles.finishText}>
+              Close the race and publish the final classification. Every rider gets
+              their final placing and total time, all categories are closed, and the
+              race becomes read-only and signed — no live timing, imports or edits
+              afterwards. This cannot be undone.
+            </div>
+            <button
+              className={styles.finishBtn}
+              onClick={() => setShowFinishRace(true)}
+              data-testid="finish-race-btn"
+            >
+              <Flag size={14} /> Finish Race
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Finalization certificate ── */}
+      {finalized && (
+        <div
+          className={styles.certificate}
+          data-testid="race-certificate"
+          data-check={finalCheck ?? "checking"}
+        >
+          <div className={styles.certTitle}>
+            <Lock size={15} /> Final Results
+          </div>
+          <div className={styles.certBody}>
+            <div className={styles.certRow}>
+              <span className={styles.certLabel}>Closed by</span>
+              <span className={styles.certValue}>{finalized.by}</span>
+            </div>
+            <div className={styles.certRow}>
+              <span className={styles.certLabel}>Closed at</span>
+              <span className={styles.certValue}>
+                {new Date(finalized.at).toLocaleString()}
+              </span>
+            </div>
+            <div className={styles.certRow}>
+              <span className={styles.certLabel}>Results</span>
+              <span className={styles.certValue}>
+                {finalized.riderCount} riders · {finalized.categoryCount} categories
+              </span>
+            </div>
+            <div className={styles.certRow}>
+              <span className={styles.certLabel}>Signature</span>
+              <span className={styles.certToken} title={finalized.token}>
+                {finalized.algo} · {shortToken(finalized.token)}
+              </span>
+            </div>
+
+            {/* Live re-check against the riders currently stored. */}
+            {finalCheck === "valid" && (
+              <div className={styles.certOk}>
+                ✓ Verified — the stored results still match this signature.
+              </div>
+            )}
+            {finalCheck === "results-modified" && (
+              <div className={styles.certBad}>
+                ⚠ The signature is authentic, but the results stored on this device no
+                longer match it. Treat the exported file, not this copy, as the record.
+              </div>
+            )}
+            {finalCheck === "invalid" && (
+              <div className={styles.certBad}>
+                ✕ This finalization record does not verify against itself. It was not
+                produced by finishing the race here.
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -537,6 +719,7 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
       {pendingImport && (
         <MergeImportModal
           fileRaceName={pendingImport.raceName}
+          fileFinalized={Boolean(pendingImport.finalized)}
           fileCategories={pendingImport.categories}
           fileRiders={pendingImport.riders}
           localCategories={raceCats}
@@ -568,6 +751,16 @@ const Info: React.FC<Props> = ({ race, onDeleteRace }) => {
 
       {showAuditLog && (
         <AuditLogViewer race={race} onClose={() => setShowAuditLog(false)} />
+      )}
+
+      {showFinishRace && (
+        <FinishRaceModal
+          raceName={race.name}
+          riders={raceRiders}
+          categories={raceCats}
+          onConfirm={handleFinishRace}
+          onCancel={() => setShowFinishRace(false)}
+        />
       )}
     </div>
   );

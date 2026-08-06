@@ -66,6 +66,21 @@
   cursor: pointer;
 }
 
+/* Takes the Edit button's place on a finalized race — same footprint so the
+   header doesn't jump between a live and a closed race. */
+.lockedTag {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #a8761a;
+  background: #fffaf0;
+  border: 1px solid #f0e0bd;
+  border-radius: 10px;
+  padding: 6px 14px;
+}
+
 .editActions {
   display: flex;
   gap: 8px;

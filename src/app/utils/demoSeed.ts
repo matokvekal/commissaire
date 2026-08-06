@@ -80,7 +80,7 @@ const RACE: RaceProps = {
   status: "running",
   type: "MTB",
   level: "All",
-  orgenizer: "Israeli Cycling Federation",
+  orgenizer: "ENGLAND  Cycling Federation",
   manager: "Demo Manager",
   phone: "050-0000000",
   takanon: "",

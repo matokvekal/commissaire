@@ -4,8 +4,9 @@ import { useState } from "react";
 import type { RiderProps } from "@/types/types";
 import Images from "@/constants/Images";
 import useRiderStore from "@/stores/ridersStore";
+import { useRaceFinalized } from "@/utils/raceLock";
 import styles from "./riderDetailModal.module.css";
-import { X, Edit2, Save, XCircle, User } from "lucide-react";
+import { X, Edit2, Save, XCircle, User, Lock } from "lucide-react";
 
 interface Props {
   rider: RiderProps;
@@ -44,6 +45,11 @@ export default function RiderDetailModal({ rider, onClose }: Props) {
   });
 
   const updateRider = useRiderStore((s) => s.updateRider);
+  // The modal opens from Riders, Results and Standing alike, so it asks about
+  // the lock itself rather than making three callers remember to pass it down.
+  // Without this the Save button would look like it worked while the store
+  // silently dropped the write (utils/raceLock.ts).
+  const finalized = useRaceFinalized(rider.raceUuid);
 
   const avatar =
     rider.image?.startsWith("data:") || rider.image?.startsWith("http")
@@ -88,7 +94,11 @@ export default function RiderDetailModal({ rider, onClose }: Props) {
           <button className={styles.closeBtn} onClick={onClose}>
             <X size={18} />
           </button>
-          {!editMode ? (
+          {finalized ? (
+            <span className={styles.lockedTag} data-testid="rider-modal-locked">
+              <Lock size={13} /> Final
+            </span>
+          ) : !editMode ? (
             <button className={styles.editBtn} onClick={() => setEditMode(true)}>
               <Edit2 size={14} /> Edit
             </button>

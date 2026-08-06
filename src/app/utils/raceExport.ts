@@ -1,94 +1,30 @@
 import * as XLSX from "xlsx";
 import type { RaceProps, CategoryProps, RiderProps } from "@/types/types";
+// The hashing primitives live in an xlsx-free module so the finalize flow can
+// use them without dragging SheetJS into the main chunk (BUGS.md #1).
+import {
+  EXPORT_SIGNATURE_VERSION,
+  buildSignaturePayload,
+  randomNonce,
+  riderResultsDigest,
+  sha256Hex,
+  verifyExportToken,
+  type ExportSignature,
+} from "./raceSignature";
+
+// Re-exported for the existing importers of this module.
+export {
+  EXPORT_SIGNATURE_VERSION,
+  buildSignaturePayload,
+  riderResultsDigest,
+  verifyExportToken,
+};
+export type { ExportSignature };
 
 function safeStr(v: unknown): string {
   if (v == null) return "";
   if (typeof v === "object") return JSON.stringify(v);
   return String(v);
-}
-
-/** Version tag of the signature format. Bump only on a breaking payload change. */
-export const EXPORT_SIGNATURE_VERSION = "commissaire-race-export/v1";
-
-export interface ExportSignature {
-  algo: "SHA-256";
-  version: string;
-  /** Who produced the file — the logged-in user, or "anonymous" for a local export. */
-  exportedBy: string;
-  exportedAt: string;
-  nonce: string;
-  /** The exact string that was hashed. Stored so the file verifies standalone. */
-  payload: string;
-  /** Lowercase hex SHA-256 of `payload`. */
-  token: string;
-}
-
-/**
- * One line per rider, in a fixed field order and sorted by id, so the digest is
- * reproducible from the Riders sheet alone. Any edit to a bib, lap count, status
- * or finish time changes this string and therefore breaks the token.
- */
-export function riderResultsDigest(riders: RiderProps[]): string {
-  return [...riders]
-    .sort((a, b) => a.id - b.id)
-    .map((r) =>
-      [
-        r.id,
-        r.bibNumber,
-        r.lapsCounter ?? 0,
-        r.status ?? "",
-        r.raceStatus ?? "",
-        r.position_category ?? 0,
-        r.elapsedTimeFromStart ?? "",
-      ].join(":")
-    )
-    .join(";");
-}
-
-/** The canonical string that gets hashed. Order and separators are part of the format. */
-export function buildSignaturePayload(args: {
-  raceUuid: string;
-  categoryCount: number;
-  riderCount: number;
-  exportedBy: string;
-  exportedAt: string;
-  nonce: string;
-  ridersDigest: string;
-}): string {
-  return [
-    EXPORT_SIGNATURE_VERSION,
-    `race=${args.raceUuid}`,
-    `cats=${args.categoryCount}`,
-    `riders=${args.riderCount}`,
-    `by=${args.exportedBy}`,
-    `at=${args.exportedAt}`,
-    `nonce=${args.nonce}`,
-    `data=${args.ridersDigest}`,
-  ].join("\n");
-}
-
-async function sha256Hex(input: string): Promise<string> {
-  const subtle = globalThis.crypto?.subtle;
-  if (!subtle) {
-    // Only happens on an insecure origin (plain http, non-localhost). Signing is
-    // the whole point of the file, so fail loudly rather than ship an unsigned one.
-    throw new Error(
-      "Web Crypto is unavailable — a signed export needs a secure context (https or localhost)."
-    );
-  }
-  const digest = await subtle.digest("SHA-256", new TextEncoder().encode(input));
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-function randomNonce(): string {
-  const bytes = new Uint8Array(16);
-  globalThis.crypto.getRandomValues(bytes);
-  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-/** Recompute the token from a payload and compare — used to verify a received file. */
-export async function verifyExportToken(payload: string, token: string): Promise<boolean> {
-  return (await sha256Hex(payload)) === token.toLowerCase();
 }
 
 export type VerificationStatus =
@@ -106,6 +42,9 @@ export interface VerificationResult {
   message: string;
   exportedBy?: string;
   exportedAt?: string;
+  /** Present when the file came from a FINALIZED race — who closed it and when. */
+  finalizedBy?: string;
+  finalizedAt?: string;
 }
 
 /**
@@ -126,11 +65,20 @@ export async function verifyRaceWorkbook(wb: XLSX.WorkBook): Promise<Verificatio
   const field: Record<string, string> = {};
   rows.slice(1).forEach((r) => { if (r[0]) field[String(r[0])] = String(r[1] ?? ""); });
 
-  const { payload, token, exportedBy, exportedAt } = field;
+  const { payload, token, exportedBy, exportedAt, finalizedBy, finalizedAt } = field;
+  // Provenance carried on every outcome, so even a failed check tells you where
+  // the file came from and whether it claims to be an official final result.
+  const meta = {
+    exportedBy,
+    exportedAt,
+    finalizedBy: finalizedBy || undefined,
+    finalizedAt: finalizedAt || undefined,
+  };
   if (!payload || !token) {
     return {
       status: "invalid",
       message: "The signature sheet is incomplete — the file cannot be verified.",
+      ...meta,
     };
   }
 
@@ -139,8 +87,7 @@ export async function verifyRaceWorkbook(wb: XLSX.WorkBook): Promise<Verificatio
       status: "invalid",
       message:
         "The signature does not match its own contents. The signature block has been altered.",
-      exportedBy,
-      exportedAt,
+      ...meta,
     };
   }
 
@@ -150,8 +97,7 @@ export async function verifyRaceWorkbook(wb: XLSX.WorkBook): Promise<Verificatio
     return {
       status: "results-modified",
       message: "The signature is intact, but the Riders sheet is missing.",
-      exportedBy,
-      exportedAt,
+      ...meta,
     };
   }
 
@@ -181,16 +127,16 @@ export async function verifyRaceWorkbook(wb: XLSX.WorkBook): Promise<Verificatio
       status: "results-modified",
       message:
         "The signature is authentic, but the race results in this file have been changed since it was exported.",
-      exportedBy,
-      exportedAt,
+      ...meta,
     };
   }
 
   return {
     status: "valid",
-    message: "Signature valid — the results are exactly as exported.",
-    exportedBy,
-    exportedAt,
+    message: finalizedBy
+      ? "Signature valid — these are the official final results, exactly as exported."
+      : "Signature valid — the results are exactly as exported.",
+    ...meta,
   };
 }
 
@@ -223,6 +169,9 @@ export async function exportRaceToXlsx(
     ["takanon", race.takanon ?? ""],
     ["status", race.status ?? "upcoming"],
     ["owner", race.owner ?? ""],
+    // Whole finalization record, verbatim. An importer reads this back so a
+    // finalized race stays finalized on whoever's device opens it next.
+    ["finalized", race.finalized ? JSON.stringify(race.finalized) : ""],
   ];
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(raceRows), "Race");
 
@@ -291,6 +240,12 @@ export async function exportRaceToXlsx(
     ["nonce", signature.nonce],
     ["token", signature.token],
     ["payload", signature.payload],
+    // Finalization provenance is separate from the export signature: the export
+    // token says "this file is unedited since download", the finalize token says
+    // "this race was officially closed by X at Y". Verify surfaces both.
+    ["finalizedBy", race.finalized?.by ?? ""],
+    ["finalizedAt", race.finalized?.at ?? ""],
+    ["finalizeToken", race.finalized?.token ?? ""],
   ];
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sigRows), "Signature");
 

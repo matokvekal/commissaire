@@ -13,6 +13,7 @@ import { Sliders, Flag, Radio } from "lucide-react";
 import useUIStore from "@/stores/uiStore";
 import useCategoryStore from "@/stores/categoryStore";
 import { getDefaultLiveWave } from "../../[id]/schedule/Schedule";
+import { useRaceFinalized } from "@/utils/raceLock";
 import styles from "./racePhaseSwitcher.module.css";
 
 type Phase = "setup" | "race" | "live";
@@ -31,6 +32,9 @@ const RacePhaseSwitcher: React.FC<{ compact?: boolean }> = ({ compact = false })
   const setRaceMode = useUIStore((s) => s.setRaceMode);
   const selectedWave = useUIStore((s) => s.selectedWave);
   const categories = useCategoryStore((s) => s.categories);
+  // A finished race has no Start or Live phase left — the switcher collapses to
+  // Setup alone rather than offering two dead ends (see utils/raceLock.ts).
+  const finalized = useRaceFinalized(raceUuid);
 
   const phase: Phase = onLiveRoute ? "live" : isRaceMode ? "race" : "setup";
 
@@ -67,6 +71,14 @@ const RacePhaseSwitcher: React.FC<{ compact?: boolean }> = ({ compact = false })
     { key: "race", label: t("phase.race", "Start"), icon: <Flag size={16} />, onClick: goRace, activeClass: styles.raceActive, idleClass: styles.raceIdle },
     { key: "live", label: t("phase.live", "Live"), icon: <Radio size={16} />, onClick: goLive, activeClass: styles.liveActive, idleClass: styles.liveIdle },
   ];
+
+  if (finalized) {
+    return (
+      <div className={styles.finalTag} data-testid="phase-final">
+        🔒 {t("phase.final", "Final results")}
+      </div>
+    );
+  }
 
   return (
     <div

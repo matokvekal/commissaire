@@ -13,6 +13,8 @@ export interface RaceCardProps {
   onToggleFavorite?: (uuid: string) => void;
   /** Downloaded read-only race — enables the light one-tap delete (BUGS.md #8). */
   viewOnly?: boolean;
+  /** Race closed with "Finish Race" — shows the locked "Final" badge. */
+  finalized?: boolean;
   /** Remove a view-only race straight from the list. */
   onDelete?: (uuid: string) => void;
 }
@@ -78,8 +80,39 @@ export interface RaceProps {
    * (BUGS.md #8).
    */
   viewOnly?: boolean;
+  /**
+   * Set once by "Finish Race" (Info tab). Its presence means the race is
+   * FINALIZED: results are computed, and riders/categories/race details are
+   * permanently read-only. Enforced in the stores, not just the UI — see
+   * `utils/raceLock.ts`. Never clear this by hand; the whole point is that a
+   * published result cannot be quietly edited afterwards.
+   */
+  finalized?: RaceFinalization;
   syncedAt?: Date;      // Last sync timestamp
   serverVersion?: number;  // Version control for conflict resolution
+}
+
+/**
+ * Tamper-evident record of a race being finalized. `token` is a SHA-256 over
+ * `payload`, which folds in who finalized it, when, a nonce and a digest of
+ * every rider's final result — so a result sheet can be checked later and any
+ * edited placing, lap count or status shows up as a broken signature.
+ */
+export interface RaceFinalization {
+  /** Format tag — bump only on a breaking payload change. */
+  version: string;
+  algo: "SHA-256";
+  /** ISO timestamp of the moment the race was closed. */
+  at: string;
+  /** Who closed it — logged-in user's email/id, or "anonymous" for a local race. */
+  by: string;
+  nonce: string;
+  /** The exact string that was hashed. Stored so the record verifies standalone. */
+  payload: string;
+  /** Lowercase hex SHA-256 of `payload`. */
+  token: string;
+  riderCount: number;
+  categoryCount: number;
 }
 
 

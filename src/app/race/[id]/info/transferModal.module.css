@@ -255,3 +255,20 @@
 .confirmBtnDanger:hover:not(:disabled) {
   background: #b71c1c;
 }
+
+/* Shown when the imported file carries a verified "race finished" record —
+   Replace mode will lock this race, so it needs saying up front. */
+.finalNotice {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fffaf0;
+  border: 1px solid #f0e0bd;
+  color: #8a6a1a;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.finalNotice strong {
+  color: #6b5010;
+}

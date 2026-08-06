@@ -20,6 +20,12 @@ interface ManageHeatProps {
   raceUuid: string;
   categories: CategoryProps[];
   onEditMode?: () => void;
+  /**
+   * Finalized race — the start list is part of a signed result, so every way
+   * of changing it (import, edit, delete-all) is removed. The stores reject
+   * these writes anyway; hiding them keeps the screen honest.
+   */
+  readOnly?: boolean;
 }
 
 type SortKey = "name" | "bib" | "club" | "category" | "wave" | "status";
@@ -65,7 +71,7 @@ function getNowWave(categories: CategoryProps[], catWaveMap: Map<string, number>
   return closest;
 }
 
-const Riders: React.FC<ManageHeatProps> = ({ raceUuid, categories, onEditMode }) => {
+const Riders: React.FC<ManageHeatProps> = ({ raceUuid, categories, onEditMode, readOnly = false }) => {
   const { t } = useTranslation();
   const previousRaceUuid = useRef<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -244,7 +250,9 @@ const Riders: React.FC<ManageHeatProps> = ({ raceUuid, categories, onEditMode })
           </div>
         </div>
 
-        {/* Actions dropdown — Import / Scan / Edit (right end of the bar) */}
+        {/* Actions dropdown — Import / Scan / Edit (right end of the bar).
+            Gone entirely on a finalized race: nothing in it would work. */}
+        {!readOnly && (
         <div className={styles.actionsMenu} ref={actionsRef}>
             <button
               type="button"
@@ -289,6 +297,7 @@ const Riders: React.FC<ManageHeatProps> = ({ raceUuid, categories, onEditMode })
               </div>
             )}
         </div>
+        )}
       </div>
 
       {(waves.length > 1 || riders.some((r) => r.raceUuid === raceUuid)) && (
@@ -318,7 +327,7 @@ const Riders: React.FC<ManageHeatProps> = ({ raceUuid, categories, onEditMode })
           )}
 
           {/* Delete All button - right side */}
-          {riders.some((r) => r.raceUuid === raceUuid) && (
+          {!readOnly && riders.some((r) => r.raceUuid === raceUuid) && (
             <Button
               variant="secondary"
               size="sm"
@@ -440,18 +449,20 @@ const Riders: React.FC<ManageHeatProps> = ({ raceUuid, categories, onEditMode })
       ) : (
         <div className={styles.emptyState}>
           <p className={styles.empty}>No riders yet.</p>
-          <div className={styles.emptyActions}>
-            <button
-              className={styles.emptyImportBtn}
-              onClick={() => { setImportMode("file"); setShowImportWizard(true); }}
-            >
-              Import CSV
-            </button>
-            <ScanDocumentButton
-              variant="empty"
-              onClick={() => { setImportMode("scan"); setShowImportWizard(true); }}
-            />
-          </div>
+          {!readOnly && (
+            <div className={styles.emptyActions}>
+              <button
+                className={styles.emptyImportBtn}
+                onClick={() => { setImportMode("file"); setShowImportWizard(true); }}
+              >
+                Import CSV
+              </button>
+              <ScanDocumentButton
+                variant="empty"
+                onClick={() => { setImportMode("scan"); setShowImportWizard(true); }}
+              />
+            </div>
+          )}
         </div>
       )}
 

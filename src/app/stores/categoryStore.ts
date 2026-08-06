@@ -7,6 +7,19 @@ import { assignCategoryColors } from "@/utils/colorAssignment";
 import categoryStorageAdapter from "./indexDb/categoryStorageAdapter";
 import { COLORS } from "@/constants/index";
 import useRiderStore from "./ridersStore";
+import { isRaceUuidFinalized } from "@/utils/raceLock";
+
+/**
+ * Hard guard for a FINALIZED race — the category twin of the rider guard in
+ * `ridersStore.ts`. See `utils/raceLock.ts` for why the lock is enforced down
+ * here and not only in the UI.
+ */
+function blockIfFinalized(cats: { raceUuid: string }[], action: string): boolean {
+  const locked = [...new Set(cats.map((c) => c.raceUuid))].filter(isRaceUuidFinalized);
+  if (locked.length === 0) return false;
+  console.warn(`Race ${locked.join(", ")} is finalized — ignored category ${action}.`);
+  return true;
+}
 
 interface CategoryState {
   categories: CategoryProps[];
@@ -53,6 +66,9 @@ const useCategoryStore = create<CategoryState>()(
         }
       },
 
+      // Deliberately NOT guarded for finalized races: this only ever runs when
+      // a race has zero categories, as a derive-from-riders recovery. Blocking
+      // it would leave a finalized race with nothing to group its results by.
       createCategoriesFromRiders: async (raceUuid) => {
         try {
           const normTime = (t: string | null | undefined): string | null => {
@@ -156,6 +172,7 @@ const useCategoryStore = create<CategoryState>()(
 
 
       rebuildCategoriesFromRiders: async (raceUuid) => {
+        if (blockIfFinalized([{ raceUuid }], "rebuild")) return;
         try {
           // Clear existing categories for this race from IDB
           const db = await initIndexedDB();
@@ -182,6 +199,7 @@ const useCategoryStore = create<CategoryState>()(
       },
 
       updateRiderColor: async (categoryName, color, raceUuid) => {
+        if (blockIfFinalized([{ raceUuid }], "recolour")) return;
         try {
           const db = await initIndexedDB();
           const tx = db.transaction("riders", "readwrite");
@@ -221,6 +239,7 @@ const useCategoryStore = create<CategoryState>()(
        */
       upsertCategories: async (cats: CategoryProps[]) => {
         if (cats.length === 0) return;
+        if (blockIfFinalized(cats, "upsert")) return;
         set((state) => {
           const byId = new Map(state.categories.map((c) => [c.id, c]));
           for (const cat of cats) byId.set(cat.id, cat);
@@ -240,6 +259,7 @@ const useCategoryStore = create<CategoryState>()(
       },
 
       updateCategory: async (updatedCategory: CategoryProps) => {
+        if (blockIfFinalized([updatedCategory], "update")) return;
         try {
           const { categories } = get();
 

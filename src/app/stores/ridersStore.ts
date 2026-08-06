@@ -5,6 +5,23 @@ import { initIndexedDB } from "@/stores/indexDb/indexedDbHelper";
 import { RiderProps } from "@/types/types";
 import indexedDBStorage from "./indexDb/riderStorageAdapter";
 import { shallow } from "zustand/shallow";
+import { isRaceUuidFinalized } from "@/utils/raceLock";
+
+/**
+ * Hard guard for a FINALIZED race (see `utils/raceLock.ts`). Every rider write
+ * runs through this, so a screen that forgot to hide its edit control still
+ * cannot alter a signed result. `utils/finalizeRace.ts` writes its riders
+ * BEFORE stamping the race, so its own close-out is not blocked by this.
+ *
+ * Takes the riders being written and reports whether the write is blocked;
+ * mixed-race batches are rejected only if a finalized race is involved.
+ */
+function blockIfFinalized(riders: { raceUuid: string }[], action: string): boolean {
+  const locked = [...new Set(riders.map((r) => r.raceUuid))].filter(isRaceUuidFinalized);
+  if (locked.length === 0) return false;
+  console.warn(`Race ${locked.join(", ")} is finalized — ignored rider ${action}.`);
+  return true;
+}
 
 interface RiderState {
   riders: RiderProps[];
@@ -141,6 +158,7 @@ const useRiderStore = create<RiderState>()(
       },
 
       addNewRider: async (newRider) => {
+        if (blockIfFinalized([newRider], "add")) return;
         try {
           set((state) => ({
             ...state,
@@ -159,6 +177,7 @@ const useRiderStore = create<RiderState>()(
       },
 
       insertRiders: async (newRiders) => {
+        if (blockIfFinalized(newRiders, "import")) return;
         try {
           set((state) => ({
             ...state,
@@ -184,6 +203,7 @@ const useRiderStore = create<RiderState>()(
       },
 
       updateRider: async (updatedRider) => {
+        if (blockIfFinalized([updatedRider], "update")) return;
         try {
           set((state) => ({
             ...state,
@@ -220,6 +240,7 @@ const useRiderStore = create<RiderState>()(
        */
       patchRiders: async (updatedRiders) => {
         if (updatedRiders.length === 0) return;
+        if (blockIfFinalized(updatedRiders, "patch")) return;
         const byId = new Map(updatedRiders.map((r) => [r.id, r]));
         set((state) => ({
           ...state,
@@ -239,6 +260,7 @@ const useRiderStore = create<RiderState>()(
       },
 
       updateAllRiders: async (updatedRiders) => {
+        if (blockIfFinalized(updatedRiders, "update")) return;
         const updatedIds = new Set(updatedRiders.map((r) => r.id));
         set((state) => ({
           ...state,
@@ -261,6 +283,8 @@ const useRiderStore = create<RiderState>()(
       },
 
       deleteRider: async (riderId) => {
+        const target = get().riders.find((r) => r.id === riderId);
+        if (target && blockIfFinalized([target], "delete")) return;
         try {
           set((state) => ({
             ...state,
@@ -277,6 +301,10 @@ const useRiderStore = create<RiderState>()(
       },
 
       deleteRidersByRace: async (raceUuid) => {
+        // Deleting the whole RACE is still allowed: `racesStore.deleteRace`
+        // removes the race first, so by the time this runs as its cleanup step
+        // the uuid is no longer finalized and the purge goes through.
+        if (blockIfFinalized([{ raceUuid }], "bulk delete")) return;
         try {
           const db = await initIndexedDB();
           const allRiders = await db.getAll("riders");

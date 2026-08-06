@@ -80,11 +80,18 @@ const Standing: React.FC = () => {
     shallow
   );
 
+  // A finalized race reaches this screen by deep link only (nothing links here
+  // any more once it's closed), but it must still not offer edits the store
+  // would silently drop — see utils/raceLock.ts.
+  const finalized = Boolean(races.find((r) => r.uuid === raceUuid)?.finalized);
+
   const markStanding = async (rider: RiderProps) => {
+    if (finalized) return;
     await updateRider({ ...rider, status: "standing" });
   };
 
   const handleStatusChange = async (status: RiderProps["status"]) => {
+    if (finalized) { closeModal("modalStatus"); return; }
     if (selectedRider) {
       await updateRider({ ...selectedRider, status });
       closeModal("modalStatus");
@@ -125,10 +132,12 @@ const Standing: React.FC = () => {
                 height={14}
                 onClick={handleFilter}
               />
-              <div className={styles.rightAdd} onClick={handleAddRider}>
-                <img src={Icons.plusBlue} alt="add" width={14} height={14} />
-                <span>Add Rider</span>
-              </div>
+              {!finalized && (
+                <div className={styles.rightAdd} onClick={handleAddRider}>
+                  <img src={Icons.plusBlue} alt="add" width={14} height={14} />
+                  <span>Add Rider</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -177,7 +186,7 @@ const Standing: React.FC = () => {
                       ? "There are no riders in this race yet."
                       : `There are no riders assigned to "${selectedCategory}" yet.`}
                 </p>
-                {!searchTerm && (
+                {!searchTerm && !finalized && (
                   <div className={styles.emptyActions}>
                     <button
                       className={styles.addRiderBtn}

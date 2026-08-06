@@ -24,6 +24,7 @@ import { DEMO_RACE_UUID, DEMO_LIVE_ONBOARD_KEY } from "@/utils/demoSeed";
 // import RaceCloudPanel from "@/components/cloud/RaceCloudPanel"; // cloud tab hidden for now
 import useCloudRaceSync from "@/hooks/useCloudRaceSync";
 import { canForRace } from "@/services/cloud/permissions";
+import { isRaceFinalized } from "@/utils/raceLock";
 
 const TABS = [
   "schedule",
@@ -35,6 +36,13 @@ const TABS = [
   "info"
 ] as const;
 type Tab = (typeof TABS)[number];
+
+/**
+ * Tabs a FINALIZED race still shows. Schedule and Categories are setup tools
+ * for a race that hasn't happened yet — on a closed race they'd offer edits
+ * that silently do nothing, so they're dropped and Results leads instead.
+ */
+const FINALIZED_TABS: Tab[] = ["results", "riders", "map", "info"];
 
 const Race: React.FC = () => {
   const params = useParams();
@@ -55,6 +63,7 @@ const Race: React.FC = () => {
   const filteredCategories = categories.filter((c) => c.raceUuid === raceUuid);
 
   const isRaceMode = useUIStore((s) => s.isRaceMode);
+  const setRaceMode = useUIStore((s) => s.setRaceMode);
   const { activeTab, setActiveTab } = useDataStore();
 
   // no-op unless this race is cloud-linked and the user is logged in
@@ -96,12 +105,26 @@ const Race: React.FC = () => {
   }, [loading, race, raceUuid, getCategories, createCategoriesFromRiders]);
 
   const resolvedImage = useMemo(() => resolveRaceImage(race?.image), [race]);
+  const finalized = isRaceFinalized(race);
+
+  // A finished race has no Start/Live phase left to enter. Race mode is UI
+  // state that survives navigation, so a race finalized while it was on drops
+  // back to Setup rather than rendering a start grid that can't start anything.
+  useEffect(() => {
+    if (finalized && isRaceMode) setRaceMode(false);
+  }, [finalized, isRaceMode, setRaceMode]);
+
+  // Editing riders is impossible once finalized — leave the editor if it's open.
+  useEffect(() => {
+    if (finalized && ridersEdit) setRidersEdit(false);
+  }, [finalized, ridersEdit]);
 
   if (loading) return <div className={styles.loading}>Loading race...</div>;
   if (!race) return <div className={styles.loading}>Race not found.</div>;
 
+  const visibleTabs: readonly Tab[] = finalized ? FINALIZED_TABS : TABS;
   const activeTabSafe = (
-    TABS.includes(activeTab as Tab) ? activeTab : "schedule"
+    visibleTabs.includes(activeTab as Tab) ? activeTab : visibleTabs[0]
   ) as Tab;
 
   return (
@@ -131,12 +154,22 @@ const Race: React.FC = () => {
       </div>
 
       <div className={styles.bottom}>
-        {isRaceMode ? (
+        {isRaceMode && !finalized ? (
           <RaceMode raceUuid={raceUuid} categories={filteredCategories} />
         ) : (
           <>
+            {finalized && (
+              <div className={styles.finalBanner} data-testid="race-final-banner">
+                <span className={styles.finalBannerIcon} aria-hidden="true">🔒</span>
+                <span>
+                  <strong>Final results.</strong> This race was closed on{" "}
+                  {new Date(race.finalized!.at).toLocaleDateString()} — results can be
+                  viewed and exported, but not changed.
+                </span>
+              </div>
+            )}
             <div className={styles.tabs}>
-              {TABS.map((tab) => (
+              {visibleTabs.map((tab) => (
                 <Button
                   key={tab}
                   variant={activeTabSafe === tab ? "primary" : "secondary"}
@@ -157,7 +190,7 @@ const Race: React.FC = () => {
                 <Categories raceUuid={raceUuid} />
               )}
               {activeTabSafe === "riders" &&
-                (ridersEdit ? (
+                (ridersEdit && !finalized ? (
                   <EditRiders
                     raceUuid={raceUuid}
                     categories={filteredCategories}
@@ -167,7 +200,10 @@ const Race: React.FC = () => {
                   <Riders
                     raceUuid={raceUuid}
                     categories={filteredCategories}
-                    onEditMode={() => setRidersEdit(true)}
+                    // No edit entry point at all on a finished race — the store
+                    // would reject the writes anyway.
+                    onEditMode={finalized ? undefined : () => setRidersEdit(true)}
+                    readOnly={finalized}
                   />
                 ))}
               {activeTabSafe === "results" && <Results raceUuid={raceUuid} />}
@@ -185,8 +221,12 @@ const Race: React.FC = () => {
                       alert("No permission to delete this race");
                       return;
                     }
-                    await deleteRidersByRace(raceUuid);
+                    // Race first: `deleteRace` already purges this race's
+                    // riders and categories from IndexedDB, and removing the
+                    // race lifts the finalized lock so the Zustand-cache
+                    // cleanup below isn't rejected for a finished race.
                     await deleteRace(raceUuid);
+                    await deleteRidersByRace(raceUuid);
                     // Back to the races list, NOT the marketing landing. /main
                     // shows the list when races remain, or its Create-Race /
                     // Use-Demo empty view when this was the last one (user req).

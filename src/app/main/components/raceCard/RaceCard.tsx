@@ -32,6 +32,7 @@ const RaceCard: React.FC<RaceCardProps> = ({
   isFavorite,
   onToggleFavorite,
   viewOnly,
+  finalized,
   onDelete
 }) => {
   const navigate = useNavigate();
@@ -72,10 +73,22 @@ const RaceCard: React.FC<RaceCardProps> = ({
       <div className={styles.body}>
         <div className={styles.topRow}>
           <span className={styles.name}>{name}</span>
-          <span className={`${styles.badge} ${styles[`badge_${statusKey}`]}`}>
-            {status === "running" && <span className={styles.dot} />}
-            {STATUS_LABEL[statusKey]}
-          </span>
+          {/* "Final" outranks the date-derived status: a closed race is locked,
+              which is more useful to know at a glance than "Finished". */}
+          {finalized ? (
+            <span
+              className={`${styles.badge} ${styles.badge_final}`}
+              title="Race closed — results are final and locked"
+              data-testid="race-final-badge"
+            >
+              🔒 Final
+            </span>
+          ) : (
+            <span className={`${styles.badge} ${styles[`badge_${statusKey}`]}`}>
+              {status === "running" && <span className={styles.dot} />}
+              {STATUS_LABEL[statusKey]}
+            </span>
+          )}
         </div>
 
         <div className={styles.meta}>

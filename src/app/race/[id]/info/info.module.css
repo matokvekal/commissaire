@@ -520,3 +520,150 @@
 
 .verify_unsigned       { border-color: #b9c0cf; background: rgba(185, 192, 207, 0.15); }
 .verify_unsigned .verifyHeadline { color: #5d6577; }
+
+/* ── Finish Race (footer action) ────────────────────────────────────────
+   Structured like .dangerZone — same shape so it reads as a serious,
+   irreversible action — but gold rather than red: finishing a race is the
+   intended end of an event, not damage control. */
+.finishZone {
+  border: 1px solid #f0e0bd;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.finishTitle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px;
+  background: #fffaf0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #a8761a;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid #f0e0bd;
+}
+
+.finishBody {
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.finishText {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.5;
+}
+
+.finishBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  padding: 9px 20px;
+  background: linear-gradient(180deg, #d8a53a 0%, #b4801a 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s;
+  white-space: nowrap;
+}
+
+.finishBtn:hover {
+  filter: brightness(1.08);
+}
+
+/* Replaces the Edit bar once the race is closed. */
+.lockedNote {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8a7550;
+}
+
+/* ── Finalization certificate ── */
+.certificate {
+  border: 1px solid #f0e0bd;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 14px;
+  background: #fffdf8;
+}
+
+.certTitle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px;
+  background: #fffaf0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #a8761a;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid #f0e0bd;
+}
+
+.certBody {
+  padding: 12px 14px;
+}
+
+.certRow {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 5px 0;
+  font-size: 13px;
+}
+
+.certLabel {
+  flex-shrink: 0;
+  width: 82px;
+  color: #8a7550;
+  font-size: 12px;
+}
+
+.certValue {
+  color: #33383f;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.certToken {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: #a8761a;
+  background: #fff6e2;
+  border-radius: 6px;
+  padding: 2px 7px;
+}
+
+.certOk,
+.certBad {
+  margin-top: 10px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.certOk {
+  background: #eaf7ee;
+  color: #216c33;
+}
+
+.certBad {
+  background: #fdecea;
+  color: #b3261e;
+}

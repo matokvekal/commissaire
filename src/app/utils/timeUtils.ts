@@ -100,6 +100,29 @@ export const parseClockTime = (t: string | null | undefined): Date | null => {
 };
 
 /**
+ * Time elapsed between a wall-clock "HH:MM:SS" start string and `now`, as
+ * "MM:SS" (or "H:MM:SS" past the hour). This is the exact format written into
+ * `rider.elapsedTimeFromStart`, so the live screens, the rider list and the
+ * finalize sweep must all use THIS function — three private copies had already
+ * drifted into the codebase.
+ */
+export const formatElapsedSince = (
+  now: Date,
+  startTimeStr: string | null | undefined
+): string => {
+  if (!startTimeStr) return "--:--";
+  const [h, m, s = 0] = startTimeStr.split(":").map(Number);
+  const start = new Date(now);
+  start.setHours(h, m, s, 0);
+  const diffSec = Math.max(0, Math.floor((now.getTime() - start.getTime()) / 1000));
+  const hrs = Math.floor(diffSec / 3600);
+  const mins = Math.floor((diffSec % 3600) / 60);
+  const secs = diffSec % 60;
+  if (hrs > 0) return `${hrs}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+};
+
+/**
  * The total elapsed time to display for a rider: computed live from the
  * start clock → last-lap arrival, falling back to the stored string.
  * Returns "—" when nothing usable is available.

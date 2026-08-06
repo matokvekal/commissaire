@@ -7,6 +7,8 @@ export type ImportMode = "merge" | "replace";
 
 interface Props {
   fileRaceName: string;
+  /** The file came from a race closed with "Finish Race" (record verified). */
+  fileFinalized?: boolean;
   fileCategories: CategoryProps[];
   fileRiders: RiderProps[];
   localCategories: CategoryProps[];
@@ -29,6 +31,7 @@ function catHasResults(cat: CategoryProps, riders: RiderProps[]): boolean {
 // category fully replaces the local results of that category — nothing else changes.
 const MergeImportModal: React.FC<Props> = ({
   fileRaceName,
+  fileFinalized = false,
   fileCategories,
   fileRiders,
   localCategories,
@@ -84,6 +87,16 @@ const MergeImportModal: React.FC<Props> = ({
           {fileRiders.length} riders. Pick the categories to bring in; each one
           replaces the local results of that category only.
         </p>
+
+        {/* Replacing with a finished race's file locks this race — say so
+            before they pick a mode, not after. */}
+        {fileFinalized && (
+          <div className={styles.finalNotice} data-testid="import-final-notice">
+            🔒 These are <strong>final results</strong> from a finished race. Choosing{" "}
+            <strong>Replace</strong> makes this race read-only — you'll be able to view
+            and export it, but not change it.
+          </div>
+        )}
 
         <div className={styles.selectAllRow}>
           <button

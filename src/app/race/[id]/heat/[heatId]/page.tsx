@@ -101,6 +101,15 @@ const Heat: React.FC = () => {
   }, []);
 
   const currentRace = useMemo(() => races.find((r) => r.uuid === raceUuid), [races, raceUuid]);
+
+  // A finalized race has no live screen — every tap here would be swallowed by
+  // the store guards (utils/raceLock.ts). Bounce to the race, which opens on
+  // Results. Covers the deep link / bookmark / back-button routes too, which is
+  // why it lives here and not only behind the hidden Live button.
+  useEffect(() => {
+    if (currentRace?.finalized) navigate(`/race/${raceUuid}`, { replace: true });
+  }, [currentRace?.finalized, navigate, raceUuid]);
+
   // treat race.distance as circuit km per lap (if set and reasonable)
   const circuitKm = currentRace?.distance && currentRace.distance > 0 ? currentRace.distance : null;
 

@@ -1,13 +1,36 @@
 import * as XLSX from "xlsx";
-import type { CategoryProps, RiderProps } from "@/types/types";
+import type { CategoryProps, RiderProps, RaceFinalization } from "@/types/types";
 import { initIndexedDB } from "@/stores/indexDb/indexedDbHelper";
 import { riderInCategory, catWaveKey } from "../race/[id]/schedule/Schedule";
+import { verifyExportToken } from "./raceSignature";
 
 export interface ImportResult {
   raceUuid: string;
   categories: CategoryProps[];
   riders: RiderProps[];
   raceName: string;
+  /**
+   * Set when the file came from a race that was closed with "Finish Race" AND
+   * the record verifies against itself. A full "replace" import adopts it, so a
+   * final result handed to another commissaire arrives locked on their device
+   * too — they can read and export it, not edit it.
+   *
+   * Unverifiable records are dropped rather than trusted: a hand-written
+   * "finalized" row must not be able to lock someone else's race.
+   */
+  finalized?: RaceFinalization;
+}
+
+/** Parse + self-verify the finalization record stored on the Race sheet. */
+async function parseFinalized(raw: string | undefined): Promise<RaceFinalization | undefined> {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as RaceFinalization;
+    if (!parsed?.payload || !parsed?.token) return undefined;
+    return (await verifyExportToken(parsed.payload, parsed.token)) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function parseNum(v: unknown): number {
@@ -125,7 +148,13 @@ export async function importRaceFromXlsx(file: File): Promise<ImportResult> {
     };
   });
 
-  return { raceUuid, categories, riders, raceName };
+  return {
+    raceUuid,
+    categories,
+    riders,
+    raceName,
+    finalized: await parseFinalized(raceRows["finalized"]),
+  };
 }
 
 export interface MergeResult {
